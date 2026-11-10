@@ -2,6 +2,9 @@ name: Jalankan Ngumpul
 
 on: workflow_dispatch
 
+permissions:
+  contents: read
+
 concurrency:
   group: ngumpul
   cancel-in-progress: true
@@ -16,11 +19,15 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: Server + tunnel + bot
+      - name: Server, tunnel, dan bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
           python server.py &
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8080/healthz > /dev/null && break
+            sleep 1
+          done
           curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cf
           chmod +x cf
           ./cf tunnel --no-autoupdate --url http://127.0.0.1:8080 > cf.log 2>&1 &
@@ -30,6 +37,10 @@ jobs:
             [ -n "$URL" ] && break
             sleep 2
           done
-          [ -z "$URL" ] && { echo "Tunnel gagal jalan"; exit 1; }
-          echo "Tunnel siap"
+          if [ -z "$URL" ]; then
+            echo "Tunnel gagal jalan. Log terakhir:"
+            grep -v 'trycloudflare' cf.log | tail -n 20
+            exit 1
+          fi
+          echo "Tunnel siap, bot jalan"
           WEBAPP_URL="$URL" python bot.py
