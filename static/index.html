@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ngumpul</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e5c63;--bg2:#0a4650;--ink:#10262b;--paper:#f4fbf7;--sun:#ffc93c;--coral:#ff6b5e;--mint:#7be0b4;--sky:#7cc4ff;--f:"Baloo 2",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--paper);font:16px/1.4 system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top) 16px calc(96px + env(safe-area-inset-bottom))}
+[hidden]{display:none!important}
+#splash{display:grid;place-items:center;height:80vh;text-align:center}
+.logo{font:800 64px/1 var(--f);color:var(--sun);text-shadow:0 4px 0 var(--ink)}
+header{padding:20px 0 6px}
+h1{font:800 42px/1 var(--f);color:var(--sun);text-shadow:0 3px 0 var(--ink)}
+header p{opacity:.8;margin-top:6px}
+.row{display:flex;gap:14px;align-items:center;width:100%;padding:12px;margin-top:10px;border:0;border-radius:18px;background:var(--bg2);color:var(--paper);text-align:left;font:inherit;cursor:pointer}
+.row:active{transform:translateY(2px)}
+.tile{flex:none;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:28px;color:var(--ink)}
+.row b{font:600 18px/1.2 var(--f);display:block}
+.row small{opacity:.75}
+.pill{margin-left:auto;font-size:13px;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.12);white-space:nowrap}
+.bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--ink)}
+.bar input{flex:1;min-width:0;padding:10px 14px;border-radius:12px;border:2px solid #2b4a52;background:transparent;color:var(--paper);font:600 20px var(--f);text-transform:uppercase;letter-spacing:.2em}
+.bar input:focus-visible,.btn:focus-visible,.row:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+.btn{padding:12px 20px;border:0;border-radius:12px;background:var(--sun);color:var(--ink);font:600 17px var(--f);cursor:pointer}
+.btn.alt{background:transparent;color:var(--paper);border:2px solid #2b4a52}
+.acts{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.code{font:800 56px/1 var(--f);letter-spacing:.12em;color:var(--sun);margin:14px 0 4px}
+.who{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-top:8px;border-radius:14px;background:var(--bg2)}
+.dot{width:32px;height:32px;border-radius:50%;background:var(--mint);color:var(--ink);display:grid;place-items:center;font:600 16px var(--f)}
+#info{margin:14px 0 0;opacity:.85}
+#toast{position:fixed;top:calc(12px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:var(--coral);color:var(--ink);padding:10px 16px;border-radius:12px;font-weight:600;z-index:9;max-width:90vw}
+@media (prefers-reduced-motion:no-preference){.logo{animation:pop .5s ease-out}@keyframes pop{from{transform:scale(.7);opacity:0}}}
+</style>
+</head>
+<body>
+<div id="toast" hidden></div>
+
+<section id="splash"><div><div class="logo">Ngumpul</div><p style="margin-top:10px;opacity:.8">Menyambung…</p></div></section>
+
+<section id="home" hidden>
+  <header><h1>Ngumpul</h1><p>Pilih game, buat room, ajak teman.</p></header>
+  <div id="games"></div>
+  <div class="bar">
+    <input id="join" maxlength="5" placeholder="KODE" aria-label="Kode room" autocomplete="off">
+    <button class="btn" id="joinBtn">Gabung</button>
+  </div>
+</section>
+
+<section id="lobby" hidden>
+  <header><p id="gname" style="font:600 20px var(--f)"></p><div class="code" id="code"></div><p>Kode room. Bagikan ke teman.</p></header>
+  <div id="who"></div>
+  <p id="info"></p>
+  <div class="acts">
+    <button class="btn" id="start">Mulai</button>
+    <button class="btn alt" id="share">Bagikan kode</button>
+    <button class="btn alt" id="leave">Keluar</button>
+  </div>
+</section>
+
+<script>
+const G=[
+ {id:"ludo",n:"Ludo",e:"🎲",d:"Keliling papan, jegal bidak teman",p:"2–4",c:"var(--coral)"},
+ {id:"werewolf",n:"Werewolf",e:"🐺",d:"Cari serigala di antara warga",p:"5–12",c:"var(--sky)"},
+ {id:"tod",n:"Truth or Dare",e:"🍾",d:"Putar botol, pilih jujur atau berani",p:"2–10",c:"var(--sun)"},
+ {id:"monyet",n:"Tiga Monyet Bijak",e:"🙈",d:"Buta, tuli, bisu: selesaikan bareng",p:"3",c:"var(--mint)"},
+ {id:"gunung",n:"Panjat Gunung",e:"⛰️",d:"Lompat sampai puncak, balapan",p:"2–8",c:"var(--sky)"},
+ {id:"distrik",n:"Distrik Bayangan",e:"🔦",d:"1 pemburu lawan survivor",p:"2–6",c:"var(--coral)"}
+];
+const tg=Telegram.WebApp;tg.ready();tg.expand();
+try{tg.setHeaderColor("#0a4650");tg.setBackgroundColor("#0e5c63")}catch(e){}
+const $=s=>document.querySelector(s);
+let ws,me,room,tt;
+
+function show(v){["splash","home","lobby"].forEach(x=>$("#"+x).hidden=x!==v)}
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2800)}
+function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))}
+
+$("#games").replaceChildren(...G.map(g=>{
+  const b=document.createElement("button");b.className="row";
+  b.innerHTML=`<span class="tile" style="background:${g.c}">${g.e}</span><span><b>${g.n}</b><small>${g.d}</small></span><span class="pill">${g.p} pemain</span>`;
+  b.onclick=()=>send({t:"create",game:g.id});return b}));
+
+function render(){
+  const g=G.find(x=>x.id===room.game),host=room.host===me;
+  $("#gname").textContent=g.e+" "+g.n;
+  $("#code").textContent=room.code;
+  $("#who").replaceChildren(...room.players.map(p=>{
+    const d=document.createElement("div");d.className="who";
+    const a=document.createElement("span");a.className="dot";a.textContent=[...p.name][0]||"?";
+    const n=document.createElement("span");n.textContent=p.name+(p.id===room.host?" (tuan rumah)":"");
+    d.append(a,n);return d}));
+  $("#start").hidden=!host||room.started;
+  $("#info").textContent=room.started?"Game dimulai. Layar permainan ini menyusul di versi berikutnya.":host?`Mulai kalau sudah ada ${g.p} pemain.`:"Menunggu tuan rumah memulai.";
+}
+
+function connect(){
+  ws=new WebSocket(location.origin.replace("http","ws")+"/ws");
+  ws.onopen=()=>send({t:"auth",initData:tg.initData});
+  ws.onmessage=e=>{const m=JSON.parse(e.data);
+    if(m.t==="ready"){me=m.me;show(room?"lobby":"home");
+      const c=((tg.initDataUnsafe.start_param||new URLSearchParams(location.search).get("code"))||"").replace("room_","");
+      if(c&&!room)send({t:"join",code:c});else if(room)send({t:"join",code:room.code})}
+    if(m.t==="room"){room=m;render();show("lobby")}
+    if(m.t==="left"){room=null;show("home")}
+    if(m.t==="error")toast(m.m)};
+  ws.onclose=()=>{toast("Koneksi putus. Menyambung lagi…");setTimeout(connect,2000)};
+}
+
+$("#joinBtn").onclick=()=>{const c=$("#join").value.trim();if(c)send({t:"join",code:c})};
+$("#start").onclick=()=>send({t:"start"});
+$("#leave").onclick=()=>send({t:"leave"});
+$("#share").onclick=()=>{const g=G.find(x=>x.id===room.game);
+  tg.openTelegramLink("https://t.me/share/url?url="+encodeURIComponent(`Ayo main ${g.n} di Ngumpul! Kode room: ${room.code}`))};
+connect();
+</script>
+</body>
+</html>
