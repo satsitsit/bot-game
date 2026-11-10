@@ -1,0 +1,35 @@
+name: Jalankan Ngumpul
+
+on: workflow_dispatch
+
+concurrency:
+  group: ngumpul
+  cancel-in-progress: true
+
+jobs:
+  game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Server + tunnel + bot
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          python server.py &
+          curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cf
+          chmod +x cf
+          ./cf tunnel --no-autoupdate --url http://127.0.0.1:8080 > cf.log 2>&1 &
+          URL=""
+          for i in $(seq 1 30); do
+            URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' cf.log | head -1 || true)
+            [ -n "$URL" ] && break
+            sleep 2
+          done
+          [ -z "$URL" ] && { echo "Tunnel gagal jalan"; exit 1; }
+          echo "Tunnel siap"
+          WEBAPP_URL="$URL" python bot.py
