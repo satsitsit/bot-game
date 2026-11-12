@@ -107,6 +107,25 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
 .gate{margin-top:60px;padding:26px 20px;text-align:center;border-radius:24px;background:var(--panel);border:1px solid var(--line)}
 .gate h2{font:800 24px/1.1 var(--f);margin-bottom:8px}.gate p{margin-bottom:20px;color:var(--mut)}
 #toast{position:fixed;z-index:9;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);max-width:88vw;padding:10px 18px;border-radius:14px;background:var(--ink);color:#14110a;font-weight:700;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.logo,.bar .nm{background:linear-gradient(90deg,#f1d9a0,#d9b36c 60%,#b98a3e);-webkit-background-clip:text;background-clip:text;color:transparent}
+.mk{width:72px;height:72px;filter:drop-shadow(0 6px 18px rgba(217,179,108,.35))}.bar .mk{width:30px;height:30px;filter:none}
+#chairs circle{fill:#1d140b;stroke:rgba(217,179,108,.3);stroke-width:.4}#chairs .bk{fill:none;stroke:#3a2716;stroke-width:2.4;stroke-linecap:round}
+.seat .nm{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:-9px;padding:1px 8px;max-width:84px;border-radius:99px;background:rgba(9,11,16,.9);border:1px solid var(--line);text-shadow:none}
+.stage{max-width:380px;margin:14px auto 8px}
+.stage::before{content:"";position:absolute;inset:-4%;border-radius:50%;background:radial-gradient(closest-side,rgba(217,179,108,.18),transparent 72%);pointer-events:none}
+.lobby{margin-top:14px;padding:18px 16px 16px;border-radius:24px;text-align:center;border:1px solid rgba(217,179,108,.35);background:linear-gradient(160deg,rgba(217,179,108,.13),rgba(255,255,255,.03))}
+.lobby small{color:var(--gold);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+.tiles{display:flex;justify-content:center;gap:8px;width:100%;margin:12px 0 14px;padding:0;background:none;border:0;cursor:pointer}
+.tiles span{width:48px;height:60px;display:grid;place-items:center;border-radius:14px;background:rgba(0,0,0,.35);border:1px solid rgba(217,179,108,.35);font:800 30px/1 var(--f);color:var(--gold2)}
+.count{height:5px;margin:16px 4px 8px;border-radius:5px;background:var(--line);overflow:hidden}.count i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .3s}
+.lobby p{color:var(--mut);font-size:13px}
+.kind{font-size:14px;padding:6px 20px}
+.gl{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gc{position:relative;padding:14px;border-radius:20px;background:var(--panel);border:1px solid var(--line)}
+.gc svg{width:46px;height:46px;margin-bottom:12px}.gc b{display:block;font:800 15px/1.2 var(--f)}.gc small{display:block;margin-top:2px;color:var(--mut);font-size:12px;line-height:1.35}
+.gc i{position:absolute;top:12px;right:12px;font:700 10px var(--f);font-style:normal;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.gc em{display:inline-block;margin-top:8px;padding:2px 10px;border-radius:99px;border:1px solid var(--line);font:700 11px var(--f);font-style:normal;color:var(--mut)}
+#log{height:96px}.rxs button{height:40px}
 </style>
 </head>
 <body>
@@ -117,7 +136,7 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
 <radialGradient id="gWood" cx=".5" cy=".5" r=".5"><stop offset=".8" stop-color="#5d3d22"/><stop offset="1" stop-color="#2b1b0e"/></radialGradient>
 <radialGradient id="gFelt" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#1c6e5a"/><stop offset="1" stop-color="#082a23"/></radialGradient></defs>
 <symbol id="bottle" viewBox="0 0 40 120"><rect x="15" y="1" width="10" height="7" rx="2" fill="url(#gGold)"/><path d="M16.5 8h7v22c0 7 8.5 9 8.5 20v60a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7V50c0-11 8.5-13 8.5-20z" fill="url(#gGlass)" stroke="rgba(255,255,255,.4)"/><rect x="8" y="64" width="24" height="26" fill="#f1d9a0" opacity=".92"/><rect x="12" y="38" width="3" height="66" rx="1.5" fill="#fff" opacity=".35"/></symbol>
-<symbol id="mark" viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="url(#gGold)" stroke-width="2.5"/><circle cx="24" cy="24" r="6" fill="url(#gGold)"/><g fill="url(#gGold)"><circle cx="24" cy="4" r="3.5"/><circle cx="24" cy="44" r="3.5"/><circle cx="4" cy="24" r="3.5"/><circle cx="44" cy="24" r="3.5"/></g></symbol>
+<symbol id="mark" viewBox="0 0 48 48"><circle cx="24" cy="24" r="15" fill="none" stroke="url(#gGold)" stroke-width="2.2"/><g fill="url(#gGold)"><circle cx="24" cy="4.5" r="3"/><circle cx="40.9" cy="14.2" r="3"/><circle cx="40.9" cy="33.8" r="3"/><circle cx="24" cy="43.5" r="3"/><circle cx="7.1" cy="33.8" r="3"/><circle cx="7.1" cy="14.2" r="3"/></g><g transform="rotate(35 24 24)"><rect x="22.2" y="13.5" width="3.6" height="7.5" rx="1.2" fill="url(#gGold)"/><rect x="20.4" y="20" width="7.2" height="15" rx="3.4" fill="url(#gGold)"/></g></symbol>
 <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
 <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"/></symbol>
 <symbol id="i-send" viewBox="0 0 24 24"><path d="M3 11.5L21 3l-8 18-2.5-7.5z"/></symbol>
@@ -148,13 +167,14 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
   <div class="hero"><div><small>Game pertama</small><h2>Truth or Dare</h2><p>Duduk melingkar, putar botol, tulis tantangan sendiri.</p><button class="btn" id="createBtn">Buat room</button></div><div id="heroart"></div></div>
   <h3>Gabung teman</h3>
   <form class="join" id="joinForm"><input id="join" maxlength="5" placeholder="Kode room" aria-label="Kode room" autocomplete="off" autocapitalize="characters"><button class="btn" type="submit">Gabung</button></form>
-  <h3>Segera hadir</h3><div class="rail" id="rail"></div>
+  <h3>Semua game</h3><div class="gl" id="gl"></div>
 </section>
 
 <section id="room" hidden>
   <div class="rtop"><div><small>Room</small><h1>Truth or Dare</h1></div>
     <button class="chip" id="codeBtn" aria-label="Salin kode room"><b id="codeTxt"></b><svg class="ic"><use href="#i-copy"/></svg></button>
     <button class="ib snd" aria-label="Suara"></button></div>
+  <div class="lobby" id="lobbyCard"><small>Kode room</small><button class="tiles" id="tiles" aria-label="Salin kode room"></button><div class="two"><button class="btn ghost sm" id="copy2">Salin kode</button><button class="btn sm" id="share2">Ajak teman</button></div><div class="count"><i id="cbar"></i></div><p id="ctxt"></p></div>
   <div class="stage" id="stage">
     <svg class="tbl" viewBox="0 0 100 100" aria-hidden="true"><g id="chairs"></g><circle cx="50" cy="50" r="31.5" fill="url(#gWood)"/><circle cx="50" cy="50" r="27.5" fill="url(#gFelt)" stroke="#d9b36c" stroke-opacity=".55" stroke-width=".5"/><circle cx="50" cy="50" r="22" fill="none" stroke="#d9b36c" stroke-opacity=".2" stroke-width=".4" stroke-dasharray="1 2"/></svg>
     <div id="seats"></div>
@@ -173,12 +193,35 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
 <script>
 const PAL=["#7c6cf0","#e0698a","#3fb89c","#e0a23f","#4d8fe0","#b66be0"];
 const RX=[["heart","Hati"],["laugh","Tawa"],["fire","Api"],["star","Bintang"],["wow","Kaget"],["like","Suka"]];
+const GL={
+ ludo:c=>`<rect x="8" y="8" width="18" height="18" rx="5" fill="${c}"/><rect x="30" y="8" width="18" height="18" rx="5" fill="${c}" opacity=".6"/><rect x="8" y="30" width="18" height="18" rx="5" fill="${c}" opacity=".6"/><rect x="30" y="30" width="18" height="18" rx="5" fill="${c}"/>`,
+ wolf:c=>`<path d="M36 6a22 22 0 1 0 14 40A18 18 0 0 1 36 6z" fill="${c}"/>`,
+ trio:c=>`<circle cx="16" cy="28" r="11" fill="${c}"/><circle cx="28" cy="28" r="11" fill="${c}" opacity=".7"/><circle cx="40" cy="28" r="11" fill="${c}" opacity=".5"/>`,
+ peak:c=>`<path d="M3 46L21 14l11 18 7-10 14 24z" fill="${c}"/>`,
+ beam:c=>`<path d="M6 24h10l30-14v36L16 32H6z" fill="${c}"/>`,
+ chain:c=>`<rect x="6" y="20" width="26" height="16" rx="8" stroke="${c}" stroke-width="5"/><rect x="24" y="20" width="26" height="16" rx="8" stroke="${c}" stroke-width="5" opacity=".6"/>`,
+ brush:c=>`<path d="M10 46l4-12L38 10l8 8-24 24z" fill="${c}"/>`,
+ podium:c=>`<rect x="6" y="26" width="13" height="22" rx="3" fill="${c}" opacity=".6"/><rect x="21.5" y="12" width="13" height="36" rx="3" fill="${c}"/><rect x="37" y="32" width="13" height="16" rx="3" fill="${c}" opacity=".6"/>`,
+ lens:c=>`<circle cx="24" cy="24" r="14" stroke="${c}" stroke-width="5"/><path d="M35 35l14 14" stroke="${c}" stroke-width="6" stroke-linecap="round"/>`,
+ bell:c=>`<path d="M28 6c-9 0-14 7-14 16v8l-5 8h38l-5-8v-8c0-9-5-16-14-16z" fill="${c}"/><circle cx="28" cy="48" r="4" fill="${c}"/>`,
+ tiles:c=>`<rect x="5" y="19" width="10" height="18" rx="3" fill="${c}"/><rect x="18" y="19" width="10" height="18" rx="3" fill="${c}" opacity=".7"/><rect x="31" y="19" width="10" height="18" rx="3" fill="${c}" opacity=".5"/><rect x="44" y="19" width="8" height="18" rx="3" stroke="${c}" stroke-width="2"/>`,
+ hands:c=>`<circle cx="16" cy="28" r="10" fill="${c}"/><rect x="30" y="14" width="18" height="28" rx="4" fill="${c}" opacity=".6"/>`,
+ note:c=>`<circle cx="18" cy="42" r="8" fill="${c}"/><path d="M25 42V10l22 6v8l-14-4v22" stroke="${c}" stroke-width="4"/>`
+};
 const SOON=[
- ["Ludo","Keliling papan, jegal bidak teman",'<svg viewBox="0 0 56 56"><circle cx="17" cy="17" r="9" fill="#e0698a"/><circle cx="39" cy="17" r="9" fill="#e0a23f"/><circle cx="17" cy="39" r="9" fill="#3fb89c"/><circle cx="39" cy="39" r="9" fill="#4d8fe0"/></svg>'],
- ["Werewolf","Cari serigala di antara warga",'<svg viewBox="0 0 56 56"><path d="M36 6a22 22 0 1 0 14 40A18 18 0 0 1 36 6z" fill="url(#gGold)"/></svg>'],
- ["Tiga Monyet Bijak","Buta, tuli, bisu. Selesaikan bareng",'<svg viewBox="0 0 56 56"><circle cx="16" cy="28" r="11" fill="#7c6cf0"/><circle cx="28" cy="28" r="11" fill="#b66be0" fill-opacity=".85"/><circle cx="40" cy="28" r="11" fill="#e0698a" fill-opacity=".85"/></svg>'],
- ["Panjat Gunung","Lompat sampai puncak, balapan",'<svg viewBox="0 0 56 56"><path d="M3 46L21 14l11 18 7-10 14 24z" fill="#3fb89c"/><path d="M21 14l6 10-4 3-4-3z" fill="#fff" fill-opacity=".85"/></svg>'],
- ["Distrik Bayangan","Satu pemburu lawan survivor",'<svg viewBox="0 0 56 56"><path d="M6 24h10l30-14v36L16 32H6z" fill="url(#gGold)"/></svg>']
+ ["Ludo","Keliling papan, jegal bidak teman","ludo","#e0698a","Papan"],
+ ["Werewolf","Cari serigala di antara warga","wolf","#b66be0","Sosial"],
+ ["Tiga Monyet Bijak","Buta, tuli, bisu. Selesaikan bareng","trio","#7c6cf0","Kerja sama"],
+ ["Panjat Gunung","Lompat sampai puncak, balapan","peak","#3fb89c","Aksi"],
+ ["Distrik Bayangan","Satu pemburu lawan survivor","beam","#e0a23f","Aksi"],
+ ["Sambung Kata","Sambung dari huruf terakhir","chain","#4d8fe0","Kata"],
+ ["Tebak Gambar","Satu menggambar, yang lain menebak","brush","#e0698a","Gambar"],
+ ["Family 100","Tebak jawaban terbanyak versi survei","podium","#e0a23f","Kuis"],
+ ["Spy","Cari penyusup yang beda kata","lens","#86dcc2","Sosial"],
+ ["Cerdas Cermat","Adu cepat jawab soal","bell","#f1d9a0","Kuis"],
+ ["Tebak Kata","Tebak huruf satu per satu","tiles","#b66be0","Kata"],
+ ["Suit","Batu, gunting, kertas lawan teman","hands","#3fb89c","Duel"],
+ ["Tebak Lagu","Dengar potongan lagu, tebak judulnya","note","#4d8fe0","Musik"]
 ];
 const seatsArt=()=>[0,1,2,3,4,5].map(i=>{const a=(i*60-90)*Math.PI/180;return `<circle cx="${(60+46*Math.cos(a)).toFixed(1)}" cy="${(60+46*Math.sin(a)).toFixed(1)}" r="9" fill="${PAL[i]}" stroke="#090b10" stroke-width="2"/>`}).join("");
 const ART={
@@ -211,7 +254,7 @@ let ac;
 const AC=()=>{if(!ac){try{ac=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(ac&&ac.state==="suspended")ac.resume();return ac};
 function tone(f,d,at,ty,v,f2){const c=AC();if(!c||mute)return;const o=c.createOscillator(),g=c.createGain(),n=c.currentTime+(at||0);o.type=ty||"sine";o.frequency.setValueAtTime(f,n);if(f2)o.frequency.exponentialRampToValueAtTime(f2,n+d);g.gain.setValueAtTime(v||.12,n);g.gain.exponentialRampToValueAtTime(.0001,n+d);o.connect(g);g.connect(c.destination);o.start(n);o.stop(n+d+.03)}
 const SFX={tick:()=>tone(1500,.035,0,"square",.03),pop:()=>tone(520,.14,0,"sine",.12,880),ding:()=>{tone(660,.6,0,"sine",.14);tone(990,.7,.12,"sine",.1)},go:()=>tone(180,.55,0,"sawtooth",.05,700),
- heart:()=>{tone(523,.16);tone(784,.28,.1)},laugh:()=>[0,1,2].forEach(i=>tone(640+i*90,.09,i*.09,"triangle",.1)),fire:()=>tone(160,.45,0,"sawtooth",.06,900),star:()=>{tone(988,.12,0,"triangle");tone(1318,.3,.1,"triangle")},wow:()=>tone(380,.4,0,"sine",.12,1100),like:()=>{tone(620,.1);tone(930,.2,.09)}};
+ heart:()=>{tone(523,.16);tone(784,.28,.1)},laugh:()=>[0,1,2].forEach(i=>tone(640+i*90,.09,i*.09,"triangle",.1)),fire:()=>tone(160,.45,0,"sawtooth",.06,900),star:()=>{tone(988,.12,0,"triangle");tone(1318,.3,.1,"triangle")},wow:()=>tone(380,.4,0,"sine",.12,1100),like:()=>{tone(620,.1);tone(930,.2,.09)},truth:()=>{tone(523,.18,0,"triangle");tone(659,.18,.12,"triangle");tone(784,.35,.24,"triangle")},dare:()=>{tone(392,.16,0,"sawtooth",.07);tone(311,.16,.12,"sawtooth",.07);tone(233,.4,.24,"sawtooth",.08)}};
 document.addEventListener("pointerdown",AC,{once:true});
 function sndUI(){document.querySelectorAll(".snd").forEach(b=>{b.replaceChildren(ico(mute?"i-mute":"i-vol"));b.setAttribute("aria-pressed",String(!mute))})}
 document.querySelectorAll(".snd").forEach(b=>b.onclick=()=>{mute=!mute;ls.set("ngumpul_mute",mute?"1":"0");sndUI();if(!mute)SFX.pop()});
@@ -242,7 +285,7 @@ function renderHome(){
   $("hi").textContent=nm?`Halo, ${nm}`:"Halo";
   $("meav").replaceChildren(av({name:nm||"?",photo:pic},0));
   $("heroart").innerHTML=ART.table;
-  $("rail").replaceChildren(...SOON.map(([n,d,a])=>{const c=h("div","soon");c.innerHTML=a;c.append(h("b",null,n),h("small",null,d),h("em",null,"Segera hadir"));return c}));
+  $("gl").replaceChildren(...SOON.map(([n,d,g,c,t])=>{const e=h("div","gc");e.innerHTML=`<svg viewBox="0 0 56 56" fill="none">${GL[g](c)}</svg>`;e.append(h("i",null,t),h("b",null,n),h("small",null,d),h("em",null,"Segera hadir"));return e}));
 }
 $("createBtn").onclick=()=>{if(pending)return;hap("light");pending=true;lock(true);act({t:"create",game:"tod"})};
 $("join").oninput=e=>{e.target.value=e.target.value.toUpperCase()};
@@ -253,7 +296,7 @@ function spin(st){
   const a=st.order.indexOf(st.target)*360/st.order.length,base=((rot%360)+360)%360;
   rot+=1800+(((a-base)%360)+360)%360;setBottle(rot,true);spinning=true;SFX.go();
   let t=0,gap=45;while(t<3300){setTimeout(SFX.tick,t);gap*=1.09;t+=gap}
-  setTimeout(()=>{spinning=false;SFX.ding();logLine(null,`Botol berhenti di ${nameOf(st.target)}.`);if(room)draw()},3500);
+  setTimeout(()=>{spinning=false;SFX.ding();setTimeout(()=>SFX[st.kind==="truth"?"truth":"dare"](),450);logLine(null,`Botol berhenti di ${nameOf(st.target)}. Sistem memilih: ${st.kind==="truth"?"Jujur":"Berani"}.`);if(room)draw()},3500);
 }
 function onRoom(m){
   room=m;pending=false;lock(false);const st=m.state;
@@ -266,12 +309,12 @@ function onRoom(m){
 }
 function draw(){
   const st=room.state,list=st?st.order.map(id=>room.players.find(p=>p.id===id)).filter(Boolean):room.players.slice();
-  const N=Math.max(2,st?list.length:Math.min(10,Math.max(2,list.length+1)));
+  const N=Math.max(2,st?list.length:Math.min(10,Math.max(3,list.length+1)));
   let ch="";const box=$("seats");box.replaceChildren();seatEl={};
   for(let i=0;i<N;i++){
-    const a=(-90+i*360/N)*Math.PI/180,p=list[i],cx=50+44.5*Math.cos(a),cy=50+44.5*Math.sin(a);
-    ch+=`<rect x="${(cx-7).toFixed(2)}" y="${(cy-3).toFixed(2)}" width="14" height="6" rx="3" transform="rotate(${(a*180/Math.PI+90).toFixed(1)} ${cx.toFixed(2)} ${cy.toFixed(2)})"/>`;
-    const s=h("div","seat");s.style.left=(50+37*Math.cos(a))+"%";s.style.top=(50+37*Math.sin(a))+"%";
+    const a=(-90+i*360/N)*Math.PI/180,x=50+36.5*Math.cos(a),y=50+36.5*Math.sin(a),p=list[i],f=v=>v.toFixed(2);
+    ch+=`<circle cx="${f(x)}" cy="${f(y)}" r="8.6"/><path class="bk" d="M${f(50+46.6*Math.cos(a-.3))} ${f(50+46.6*Math.sin(a-.3))}A46.6 46.6 0 0 1 ${f(50+46.6*Math.cos(a+.3))} ${f(50+46.6*Math.sin(a+.3))}"/>`;
+    const s=h("div","seat");s.style.left=x+"%";s.style.top=y+"%";
     if(p){
       const c=[st&&st.target===p.id&&st.phase!=="idle"&&!spinning?"hit":"",st&&st.phase==="idle"&&st.spinner===p.id?"turn":"",st&&st.phase==="write"&&st.sent.includes(p.id)?"sent":"",room.host===p.id?"host":"",p.on?"":"off"].filter(Boolean).join(" ");
       s.append(av(p,i,c),h("span","nm",p.name+(p.id===me?" (kamu)":"")));seatEl[p.id]=s;
@@ -279,6 +322,11 @@ function draw(){
     box.append(s);
   }
   $("chairs").innerHTML=ch;$("codeTxt").textContent=room.code;
+  const cnt=room.players.length;
+  $("lobbyCard").hidden=room.started;$("codeBtn").hidden=!room.started;
+  $("tiles").replaceChildren(...[...room.code].map(c=>h("span",null,c)));
+  $("cbar").style.width=Math.min(100,cnt*10)+"%";
+  $("ctxt").textContent=`${cnt} dari 10 pemain. Minimal 2 untuk mulai.`;
   $("hostctl").hidden=!(room.started&&room.host===me);
   panel();
 }
@@ -290,14 +338,10 @@ function panel(){
   if(!room.started){
     k.push(h("p","msg",host?(n<2?"Tunggu teman masuk dengan kode room di atas.":"Sudah cukup. Mulai kalau semua siap."):"Menunggu tuan rumah memulai game."));
     if(host){const b=B("Mulai game",()=>send({t:"start"}));b.disabled=n<2;k.push(b)}
-    k.push(B("Ajak teman",shareRoom,"ghost"));
   }else if(spinning)k.push(h("p","msg","Botol berputar…"));
   else if(st.phase==="idle"){
     if(st.spinner===me)k.push(h("p","msg","Giliranmu memutar botol."),B("Putar botol",()=>send({t:"spin"})));
     else k.push(h("p","msg",`${nameOf(st.spinner)} akan memutar botol.`));
-  }else if(st.phase==="pick"){
-    if(st.target===me)k.push(h("p","msg","Botol berhenti di kamu. Pilih satu."),h("div","two",null,[B("Jujur",()=>send({t:"pick",kind:"truth"})),B("Berani",()=>send({t:"pick",kind:"dare"}),"alt")]));
-    else k.push(h("p","msg",`Botol berhenti di ${nameOf(st.target)}. Menunggu pilihannya.`));
   }else if(st.phase==="write"){
     const lb=st.kind==="truth"?"pertanyaan":"tantangan",tn=nameOf(st.target),sent=st.sent.length;
     k.push(kind());
@@ -334,7 +378,8 @@ $("codeBtn").onclick=()=>{hap("light");copy(room.code)};
 $("skipBtn").onclick=()=>{hap("light");send({t:"skip"})};
 $("endBtn").onclick=()=>{hap("light");try{tg.showConfirm("Akhiri game untuk semua pemain?",ok=>{if(ok)send({t:"end"})})}catch(e){send({t:"end"})}};
 function leaveRoom(){hap("light");if(!send({t:"leave"}))toast("Belum tersambung")}
-$("leave").onclick=leaveRoom;$("retry").onclick=()=>location.reload();
+$("leave").onclick=leaveRoom;
+$("tiles").onclick=$("copy2").onclick=()=>{hap("light");copy(room.code)};$("share2").onclick=shareRoom;$("retry").onclick=()=>location.reload();
 
 function connect(){
   ws=new WebSocket(location.origin.replace(/^http/,"ws")+"/ws");
