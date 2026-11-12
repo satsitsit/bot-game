@@ -252,8 +252,14 @@ async def on_startup(app):
         pass
 
 
+INDEX = (STATIC / "index.html").read_bytes()  # dibaca sekali saat start, lebih cepat
+
+
 async def index(_):
-    return web.FileResponse(STATIC / "index.html")
+    r = web.Response(body=INDEX, content_type="text/html", charset="utf-8",
+                     headers={"Cache-Control": "no-cache"})
+    r.enable_compression()
+    return r
 
 
 async def health(_):
