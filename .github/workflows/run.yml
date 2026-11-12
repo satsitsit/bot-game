@@ -25,7 +25,7 @@ jobs:
         run: |
           python server.py &
           for i in $(seq 1 20); do
-            curl -sf http://127.0.0.1:8080/healthz > /dev/null && break
+            curl -sf --max-time 3 http://127.0.0.1:8080/healthz > /dev/null && break
             sleep 1
           done
 
@@ -34,29 +34,39 @@ jobs:
           }
 
           URL=""
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4; do
             rm -f tunnel.log
             ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes \
+                -o ConnectTimeout=20 \
                 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
                 -o ExitOnForwardFailure=yes \
                 -R 80:127.0.0.1:8080 nokey@localhost.run > tunnel.log 2>&1 &
             TPID=$!
+            CAND=""
             for i in $(seq 1 30); do
-              URL=$(find_url || true)
-              [ -n "$URL" ] && break
+              CAND=$(find_url || true)
+              [ -n "$CAND" ] && break
               kill -0 "$TPID" 2>/dev/null || break
               sleep 2
             done
+            CODE=""
+            if [ -n "$CAND" ]; then
+              for i in $(seq 1 15); do
+                CODE=$(curl -s --max-time 10 -o /dev/null -w '%{http_code}' "$CAND/healthz" || true)
+                if [ "$CODE" = "200" ]; then URL="$CAND"; break; fi
+                sleep 3
+              done
+            fi
             [ -n "$URL" ] && break
             kill "$TPID" 2>/dev/null || true
-            echo "Percobaan $attempt belum berhasil, coba lagi..."
+            echo "Percobaan $attempt belum berhasil (status terakhir: ${CODE:-belum ada alamat}), coba lagi..."
             sleep 10
           done
 
           if [ -z "$URL" ]; then
-            echo "Tunnel gagal. Log terakhir:"
+            echo "Tunnel gagal setelah beberapa percobaan. Log terakhir:"
             tail -n 20 tunnel.log
             exit 1
           fi
-          echo "Tunnel siap, bot jalan"
+          echo "Tunnel siap dan bisa diakses, bot jalan"
           WEBAPP_URL="$URL" python bot.py
