@@ -140,10 +140,9 @@ async def play(code, uid, t, msg):
         fresh(st)
     elif t == "spin" and st["phase"] == "idle" and uid == st["spinner"]:
         st["target"] = random.choice(st["order"])
+        st["kind"] = random.choice(("truth", "dare"))  # dipilih sistem supaya adil
         st["spin"] += 1
-        st["phase"] = "pick"
-    elif t == "pick" and st["phase"] == "pick" and uid == st["target"] and msg.get("kind") in ("truth", "dare"):
-        st["kind"], st["phase"], st["subs"] = msg["kind"], "write", {}
+        st["subs"], st["phase"] = {}, "write"
     elif t == "submit" and st["phase"] == "write" and uid in st["order"] and uid != st["target"]:
         text = str(msg.get("text", "")).strip()[:120]
         if text:
@@ -219,7 +218,7 @@ async def ws_handler(req):
                         await push(code)
                     else:
                         await send(ws, {"t": "error", "m": f"Butuh {lo} sampai {hi} pemain."})
-            elif t in ("spin", "pick", "submit", "reveal", "done", "skip", "end") and code in ROOMS:
+            elif t in ("spin", "submit", "reveal", "done", "skip", "end") and code in ROOMS:
                 await play(code, uid, t, msg)
             elif t in ("chat", "react") and code in ROOMS and time.time() - last > 0.35:
                 last = time.time()
