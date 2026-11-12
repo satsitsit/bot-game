@@ -3,41 +3,16 @@ from pathlib import Path
 from urllib.parse import parse_qsl
 from aiohttp import web, WSMsgType, ClientSession, ClientTimeout
 
-TOKEN = os.environ["BOT_TOKEN"]  # dari GitHub Secrets, jangan ditulis langsung di kode
-LIMITS = {"ludo": (2, 4), "werewolf": (5, 12), "tod": (2, 10),
-          "monyet": (3, 3), "gunung": (2, 8), "distrik": (2, 6)}  # game -> (min, max) pemain
-CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # tanpa I, L, O, 0, 1 supaya gampang dibaca
-MAX_AUTH_AGE = 86400  # initData lebih dari 24 jam dianggap basi
-GRACE = 40  # detik sebelum pemain yang putus koneksi dikeluarkan dari room
-PROMPTS = {
-    "truth": [
-        "Hal paling memalukan yang pernah kamu alami di sekolah apa?",
-        "Pernah pura-pura sakit biar nggak masuk sekolah atau kerja? Ceritakan.",
-        "Kebohongan terbesar yang pernah kamu bilang ke orang tua apa?",
-        "Kebiasaan aneh apa yang kamu kira cuma kamu yang punya?",
-        "Lagu apa yang paling malu kamu akui kalau sering kamu dengerin?",
-        "Hewan apa yang ingin kamu jadi selama sehari, dan kenapa?",
-        "Apa yang paling kamu takutkan tapi jarang kamu bilang?",
-        "Barang apa yang paling sering kamu cari tapi nggak ketemu?",
-    ],
-    "dare": [
-        "Kirim sticker yang paling sering kamu pakai ke grup, sekarang.",
-        "Tirukan suara hewan favoritmu sampai yang lain nebak.",
-        "Puji salah satu orang di grup dengan kalimat paling lebay.",
-        "Ceritakan lelucon paling garing yang kamu tahu.",
-        "Lakukan gerakan dance 10 detik tanpa musik.",
-        "Ucapkan nama lengkapmu pelan, lalu cepat, lalu seperti pembawa berita.",
-        "Panggil salah satu orang di grup dengan nama panggilan lucu pilihanmu.",
-        "Bicara dengan logat daerah lain sampai giliranmu berikutnya.",
-    ],
-}
-ROOMS, TASKS = {}, set()
-BOT = {"username": ""}
+TOKEN = os.environ["BOT_TOKEN"]
+LIMITS = {"tod": (2, 10)}
+CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+REACTS = {"heart", "laugh", "fire", "star", "wow", "like"}
+MAX_AUTH_AGE, GRACE = 86400, 40
+ROOMS, TASKS, BOT = {}, set(), {"username": ""}
 STATIC = Path(__file__).parent / "static"
 
 
 def verify(raw):
-    """Cek tanda tangan initData dari Telegram. Hanya user asli dari Telegram yang lolos."""
     try:
         d = dict(parse_qsl(raw, keep_blank_values=True, strict_parsing=True))
         got = d.pop("hash")
@@ -55,6 +30,11 @@ def who(u):
     return str(u.get("first_name") or "").strip()[:16] or "Pemain"
 
 
+def photo(u):
+    p = str(u.get("photo_url") or "")
+    return p if p.startswith("https://t.me/i/userpic/") else ""
+
+
 def spawn(coro):
     t = asyncio.create_task(coro)
     TASKS.add(t)
@@ -62,43 +42,50 @@ def spawn(coro):
 
 
 async def send(ws, obj):
-    if ws is None or ws.closed:
-        return
-    try:
-        await ws.send_json(obj)
-    except Exception:
-        pass
+    if ws is not None and not ws.closed:
+        try:
+            await ws.send_json(obj)
+        except Exception:
+            pass
 
 
-def public_state(r):
+async def cast(code, obj):
+    for p in list(ROOMS[code]["players"].values()):
+        await send(p["ws"], obj)
+
+
+def fresh(st, spinner=None):
+    st.update(phase="idle", target=None, kind=None, subs={}, cards=[])
+    if spinner:
+        st["spinner"] = spinner
+
+
+def pub(r):
     st = r["state"]
     if not st:
         return None
-    return {"order": st["order"], "turn": st["order"][st["turn"]], "round": st["round"],
-            "phase": st["phase"], "kind": st["kind"], "prompt": st["prompt"]}
+    return {"order": st["order"], "spinner": st["spinner"], "round": st["round"], "phase": st["phase"],
+            "target": st["target"], "spin": st["spin"], "kind": st["kind"],
+            "sent": list(st["subs"]), "cards": st["cards"] if st["phase"] == "do" else []}
 
 
 async def push(code):
     r = ROOMS.get(code)
-    if not r:
+    if r:
+        await cast(code, {"t": "room", "code": code, "game": r["game"], "host": r["host"],
+                          "started": r["started"], "state": pub(r),
+                          "players": [{"id": i, "name": p["name"], "photo": p["photo"],
+                                       "on": p["ws"] is not None} for i, p in r["players"].items()]})
+
+
+def maybe_reveal(r):
+    st = r["state"]
+    if not st or st["phase"] != "write":
         return
-    v = {"t": "room", "code": code, "game": r["game"], "host": r["host"], "started": r["started"],
-         "state": public_state(r),
-         "players": [{"id": i, "name": p["name"], "on": p["ws"] is not None}
-                     for i, p in r["players"].items()]}
-    for p in list(r["players"].values()):
-        await send(p["ws"], v)
-
-
-def end_game(r):
-    r["started"], r["state"] = False, None
-
-
-def advance(st):
-    st["turn"] = (st["turn"] + 1) % len(st["order"])
-    if st["turn"] == 0:
-        st["round"] += 1
-    st["phase"], st["kind"], st["prompt"] = "choose", None, None
+    need = [u for u in st["order"] if u != st["target"] and r["players"][u]["ws"] is not None]
+    if st["subs"] and all(u in st["subs"] for u in need):
+        st["cards"] = random.sample(list(st["subs"].values()), len(st["subs"]))
+        st["phase"] = "do"
 
 
 async def remove(code, uid):
@@ -110,19 +97,20 @@ async def remove(code, uid):
         del ROOMS[code]
         return
     if r["host"] == uid:
-        online = [i for i, p in r["players"].items() if p["ws"] is not None]
-        r["host"] = online[0] if online else next(iter(r["players"]))
+        on = [i for i, p in r["players"].items() if p["ws"] is not None]
+        r["host"] = on[0] if on else next(iter(r["players"]))
     st = r["state"]
     if st and uid in st["order"]:
-        i = st["order"].index(uid)
-        st["order"].pop(i)
+        st["order"].remove(uid)
+        st["subs"].pop(uid, None)
         if len(st["order"]) < 2:
-            end_game(r)
-        elif i < st["turn"]:
-            st["turn"] -= 1
-        elif i == st["turn"]:
-            st["turn"] = i % len(st["order"])
-            st["phase"], st["kind"], st["prompt"] = "choose", None, None
+            r["started"], r["state"] = False, None
+        else:
+            if st["spinner"] == uid:
+                st["spinner"] = st["order"][0]
+            if st["target"] == uid:
+                fresh(st)
+            maybe_reveal(r)
     await push(code)
 
 
@@ -140,37 +128,43 @@ def new_code():
             return c
 
 
-async def game_action(code, uid, t, msg):
+async def play(code, uid, t, msg):
     r = ROOMS[code]
     st = r["state"]
-    if t == "end":
-        if r["host"] == uid and r["started"]:
-            end_game(r)
-            await push(code)
+    host = r["host"] == uid
+    if t == "end" and host:
+        r["started"], r["state"] = False, None
+    elif not st:
         return
-    if not st:
+    elif t == "skip" and host:
+        fresh(st)
+    elif t == "spin" and st["phase"] == "idle" and uid == st["spinner"]:
+        st["target"] = random.choice(st["order"])
+        st["spin"] += 1
+        st["phase"] = "pick"
+    elif t == "pick" and st["phase"] == "pick" and uid == st["target"] and msg.get("kind") in ("truth", "dare"):
+        st["kind"], st["phase"], st["subs"] = msg["kind"], "write", {}
+    elif t == "submit" and st["phase"] == "write" and uid in st["order"] and uid != st["target"]:
+        text = str(msg.get("text", "")).strip()[:120]
+        if text:
+            st["subs"][uid] = text
+            maybe_reveal(r)
+    elif t == "reveal" and host and st["phase"] == "write" and st["subs"]:
+        st["cards"] = random.sample(list(st["subs"].values()), len(st["subs"]))
+        st["phase"] = "do"
+    elif t == "done" and st["phase"] == "do" and uid == st["target"]:
+        st["round"] += 1
+        fresh(st, uid)
+    else:
         return
-    if t == "skip":
-        if r["host"] == uid:
-            advance(st)
-            await push(code)
-        return
-    if uid != st["order"][st["turn"]]:
-        return
-    if t == "pick" and st["phase"] == "choose" and msg.get("kind") in ("truth", "dare"):
-        st["kind"] = msg["kind"]
-        st["prompt"] = random.choice(PROMPTS[msg["kind"]])
-        st["phase"] = "answer"
-        await push(code)
-    elif t == "done" and st["phase"] == "answer":
-        advance(st)
-        await push(code)
+    await push(code)
 
 
 async def ws_handler(req):
     ws = web.WebSocketResponse(heartbeat=25, max_msg_size=4096)
     await ws.prepare(req)
     user = code = None
+    last = 0.0
     try:
         async for m in ws:
             if m.type != WSMsgType.TEXT:
@@ -191,14 +185,13 @@ async def ws_handler(req):
                 continue
             if not user:
                 continue
-            uid, name = user["id"], who(user)
-            game = msg.get("game")
-            if t == "create" and isinstance(game, str) and game in LIMITS:
+            uid, name, pic = user["id"], who(user), photo(user)
+            if t == "create" and msg.get("game") in LIMITS:
                 if code:
                     await remove(code, uid)
                 code = new_code()
-                ROOMS[code] = {"game": game, "host": uid, "started": False, "state": None,
-                               "players": {uid: {"name": name, "ws": ws}}}
+                ROOMS[code] = {"game": msg["game"], "host": uid, "started": False, "state": None,
+                               "players": {uid: {"name": name, "photo": pic, "ws": ws}}}
                 await push(code)
             elif t == "join":
                 c = str(msg.get("code", "")).upper().strip()
@@ -206,14 +199,14 @@ async def ws_handler(req):
                 if not r:
                     await send(ws, {"t": "error", "c": "notfound", "m": "Kode room tidak ditemukan."})
                 elif uid not in r["players"] and r["started"]:
-                    await send(ws, {"t": "error", "c": "started", "m": "Game sudah dimulai."})
+                    await send(ws, {"t": "error", "m": "Game sudah dimulai."})
                 elif uid not in r["players"] and len(r["players"]) >= LIMITS[r["game"]][1]:
-                    await send(ws, {"t": "error", "c": "full", "m": "Room sudah penuh."})
+                    await send(ws, {"t": "error", "m": "Room sudah penuh."})
                 else:
                     if code and code != c:
                         await remove(code, uid)
                     code = c
-                    r["players"][uid] = {"name": name, "ws": ws}
+                    r["players"][uid] = {"name": name, "photo": pic, "ws": ws}
                     await push(c)
             elif t == "start" and code in ROOMS:
                 r = ROOMS[code]
@@ -221,14 +214,21 @@ async def ws_handler(req):
                 if r["host"] == uid and not r["started"]:
                     if lo <= len(r["players"]) <= hi:
                         r["started"] = True
-                        if r["game"] == "tod":
-                            r["state"] = {"order": list(r["players"]), "turn": 0, "round": 1,
-                                          "phase": "choose", "kind": None, "prompt": None}
+                        r["state"] = {"order": list(r["players"]), "spinner": uid, "round": 1, "spin": 0}
+                        fresh(r["state"])
                         await push(code)
                     else:
-                        await send(ws, {"t": "error", "c": "count", "m": f"Butuh {lo} sampai {hi} pemain."})
-            elif t in ("pick", "done", "skip", "end") and code in ROOMS:
-                await game_action(code, uid, t, msg)
+                        await send(ws, {"t": "error", "m": f"Butuh {lo} sampai {hi} pemain."})
+            elif t in ("spin", "pick", "submit", "reveal", "done", "skip", "end") and code in ROOMS:
+                await play(code, uid, t, msg)
+            elif t in ("chat", "react") and code in ROOMS and time.time() - last > 0.35:
+                last = time.time()
+                if t == "chat":
+                    text = str(msg.get("text", "")).strip()[:200]
+                    if text:
+                        await cast(code, {"t": "chat", "from": uid, "name": name, "text": text})
+                elif msg.get("k") in REACTS:
+                    await cast(code, {"t": "react", "from": uid, "k": msg["k"]})
             elif t == "leave":
                 if code:
                     await remove(code, uid)
@@ -238,6 +238,7 @@ async def ws_handler(req):
         r = ROOMS.get(code) if code else None
         if user and r and user["id"] in r["players"] and r["players"][user["id"]]["ws"] is ws:
             r["players"][user["id"]]["ws"] = None
+            maybe_reveal(r)
             await push(code)
             spawn(expire(code, user["id"]))
     return ws
@@ -252,12 +253,11 @@ async def on_startup(app):
         pass
 
 
-INDEX = (STATIC / "index.html").read_bytes()  # dibaca sekali saat start, lebih cepat
+INDEX = (STATIC / "index.html").read_bytes()
 
 
 async def index(_):
-    r = web.Response(body=INDEX, content_type="text/html", charset="utf-8",
-                     headers={"Cache-Control": "no-cache"})
+    r = web.Response(body=INDEX, content_type="text/html", charset="utf-8", headers={"Cache-Control": "no-cache"})
     r.enable_compression()
     return r
 
@@ -271,7 +271,6 @@ app.on_startup.append(on_startup)
 app.router.add_get("/", index)
 app.router.add_get("/healthz", health)
 app.router.add_get("/ws", ws_handler)
-app.router.add_static("/static/", STATIC, show_index=False)
 
 if __name__ == "__main__":
     web.run_app(app, host="127.0.0.1", port=8080)
