@@ -22,51 +22,112 @@ jobs:
       - name: Server, tunnel, dan bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          PYTHONUNBUFFERED: "1"
         run: |
-          python server.py &
-          for i in $(seq 1 20); do
-            curl -sf --max-time 3 http://127.0.0.1:8080/healthz > /dev/null && break
-            sleep 1
-          done
+          set +e
+          SPID=""; TPID=""; BPID=""; URL=""; CURLX=""
 
-          find_url() {
-            grep -oE 'https://[a-z0-9-]+\.(lhr\.life|localhost\.run)' tunnel.log | grep -v 'https://admin\.' | head -1
+          start_server() {
+            python server.py &
+            SPID=$!
+            for i in $(seq 1 20); do
+              curl -sf --max-time 3 http://127.0.0.1:8080/healthz > /dev/null && return 0
+              sleep 1
+            done
+            return 1
           }
 
-          URL=""
-          for attempt in 1 2 3 4; do
-            rm -f tunnel.log
-            ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes \
-                -o ConnectTimeout=20 \
-                -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
-                -o ExitOnForwardFailure=yes \
-                -R 80:127.0.0.1:8080 nokey@localhost.run > tunnel.log 2>&1 &
+          # cek alamat publik benar-benar tembus ke server (bukan bad gateway)
+          ok() {
+            C=$(curl -s --max-time 10 $CURLX -o /dev/null -w '%{http_code}' "$1/healthz")
+            [ "$C" = "200" ]
+          }
+
+          stop() {
+            for Q in "$BPID" "$TPID"; do
+              [ -n "$Q" ] || continue
+              kill -9 "$Q" 2>/dev/null
+              wait "$Q" 2>/dev/null
+            done
+            BPID=""; TPID=""
+          }
+
+          # $1 = lhr (localhost.run) atau cf (cloudflared). Hasil: URL dan TPID
+          open_tunnel() {
+            rm -f tunnel.log; URL=""; CURLX=""
+            if [ "$1" = "cf" ]; then
+              [ -x ./cloudflared ] || return 1
+              CURLX="--doh-url https://cloudflare-dns.com/dns-query"
+              RE='https://[a-z0-9-]+\.trycloudflare\.com'
+              ./cloudflared tunnel --no-autoupdate --protocol http2 \
+                  --url http://127.0.0.1:8080 > tunnel.log 2>&1 &
+            else
+              RE='https://[a-z0-9-]+\.(lhr\.life|localhost\.run)'
+              ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes \
+                  -o ConnectTimeout=20 -o ServerAliveInterval=15 \
+                  -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes \
+                  -R 80:127.0.0.1:8080 nokey@localhost.run > tunnel.log 2>&1 &
+            fi
             TPID=$!
             CAND=""
-            for i in $(seq 1 30); do
-              CAND=$(find_url || true)
+            for i in $(seq 1 25); do
+              CAND=$(grep -oE "$RE" tunnel.log | grep -vE '://(admin|api)\.' | head -1)
               [ -n "$CAND" ] && break
-              kill -0 "$TPID" 2>/dev/null || break
+              kill -0 "$TPID" 2>/dev/null || return 1
               sleep 2
             done
-            CODE=""
-            if [ -n "$CAND" ]; then
-              for i in $(seq 1 15); do
-                CODE=$(curl -s --max-time 10 -o /dev/null -w '%{http_code}' "$CAND/healthz" || true)
-                if [ "$CODE" = "200" ]; then URL="$CAND"; break; fi
-                sleep 3
-              done
-            fi
-            [ -n "$URL" ] && break
-            kill "$TPID" 2>/dev/null || true
-            echo "Percobaan $attempt belum berhasil (status terakhir: ${CODE:-belum ada alamat}), coba lagi..."
-            sleep 10
-          done
+            [ -n "$CAND" ] || return 1
+            sleep 3
+            for i in $(seq 1 20); do
+              if ok "$CAND"; then URL="$CAND"; return 0; fi
+              kill -0 "$TPID" 2>/dev/null || return 1
+              sleep 3
+            done
+            return 1
+          }
 
-          if [ -z "$URL" ]; then
-            echo "Tunnel gagal setelah beberapa percobaan. Log terakhir:"
-            tail -n 20 tunnel.log
+          # cadangan: unduh cloudflared, dipakai selang-seling kalau localhost.run rewel
+          curl -fsSL --retry 3 -o cloudflared \
+            https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+            && chmod +x cloudflared
+
+          if ! start_server; then
+            echo "Server gagal start"
             exit 1
           fi
-          echo "Tunnel siap dan bisa diakses, bot jalan"
-          WEBAPP_URL="$URL" python bot.py
+
+          n=0; bad=0
+          while true; do
+            n=$((n+1))
+            if [ $((n % 2)) -eq 1 ]; then M=lhr; else M=cf; fi
+            echo "[tunnel] percobaan $n lewat $M"
+            T0=$(date +%s)
+            if open_tunnel "$M"; then
+              echo "[tunnel] siap dan bisa diakses: $URL"
+              WEBAPP_URL="$URL" python bot.py &
+              BPID=$!
+              miss=0
+              while kill -0 "$TPID" 2>/dev/null && kill -0 "$BPID" 2>/dev/null; do
+                sleep 20
+                kill -0 "$SPID" 2>/dev/null || { echo "[server] mati, nyalakan lagi"; start_server; }
+                if ok "$URL"; then
+                  miss=0
+                else
+                  miss=$((miss+1))
+                  echo "[tunnel] cek gagal $miss/3"
+                fi
+                [ "$miss" -ge 3 ] && break
+              done
+              echo "[tunnel] putus atau bad gateway, bikin ulang"
+            else
+              echo "[tunnel] gagal lewat $M, log terakhir:"
+              tail -n 5 tunnel.log
+            fi
+            stop
+            if [ $(( $(date +%s) - T0 )) -lt 120 ]; then bad=$((bad+1)); else bad=0; fi
+            if [ "$bad" -ge 10 ]; then
+              echo "Gagal terus, berhenti. Cek BOT_TOKEN dan log di atas."
+              exit 1
+            fi
+            sleep 5
+          done
