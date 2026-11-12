@@ -28,18 +28,34 @@ jobs:
             curl -sf http://127.0.0.1:8080/healthz > /dev/null && break
             sleep 1
           done
-          curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cf
-          chmod +x cf
-          ./cf tunnel --no-autoupdate --url http://127.0.0.1:8080 > cf.log 2>&1 &
+
+          find_url() {
+            grep -oE 'https://[a-z0-9-]+\.(lhr\.life|localhost\.run)' tunnel.log | grep -v 'https://admin\.' | head -1
+          }
+
           URL=""
-          for i in $(seq 1 30); do
-            URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' cf.log | head -1 || true)
+          for attempt in 1 2 3; do
+            rm -f tunnel.log
+            ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes \
+                -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+                -o ExitOnForwardFailure=yes \
+                -R 80:127.0.0.1:8080 nokey@localhost.run > tunnel.log 2>&1 &
+            TPID=$!
+            for i in $(seq 1 30); do
+              URL=$(find_url || true)
+              [ -n "$URL" ] && break
+              kill -0 "$TPID" 2>/dev/null || break
+              sleep 2
+            done
             [ -n "$URL" ] && break
-            sleep 2
+            kill "$TPID" 2>/dev/null || true
+            echo "Percobaan $attempt belum berhasil, coba lagi..."
+            sleep 10
           done
+
           if [ -z "$URL" ]; then
-            echo "Tunnel gagal jalan. Log terakhir:"
-            grep -v 'trycloudflare' cf.log | tail -n 20
+            echo "Tunnel gagal. Log terakhir:"
+            tail -n 20 tunnel.log
             exit 1
           fi
           echo "Tunnel siap, bot jalan"
