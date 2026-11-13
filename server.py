@@ -6,6 +6,7 @@ from aiohttp import web, WSMsgType, ClientSession, ClientTimeout
 TOKEN = os.environ["BOT_TOKEN"]
 LIMITS = {"tod": (2, 10), "ludo": (2, 4)}
 CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+TURN_SECS = 40  # Ludo: diam selama ini, server main otomatis
 START = [1, 14, 27, 40]  # petak mulai tiap warna di jalur 52 petak
 SAFE = {1, 14, 27, 40, 9, 22, 35, 48}
 SEATS = {2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3]}
@@ -68,7 +69,7 @@ def pub(r):
     if not st:
         return None
     if st["g"] == "ludo":
-        return {k: st[k] for k in ("g", "order", "colors", "tokens", "turn", "phase", "dice", "movable", "winner", "rid", "ev")}
+        return {k: st[k] for k in ("g", "order", "colors", "tokens", "turn", "phase", "dice", "movable", "winner", "rid", "ev", "tries")}
     return {"g": "tod", "order": st["order"], "spinner": st["spinner"], "round": st["round"], "phase": st["phase"],
             "target": st["target"], "spin": st["spin"], "kind": st["kind"],
             "sent": list(st["subs"]), "cards": st["cards"] if st["phase"] == "do" else []}
@@ -82,21 +83,26 @@ def ludo_new(r):
     order = list(r["players"])
     return {"g": "ludo", "order": order, "colors": dict(zip(order, SEATS[len(order)])),
             "tokens": {u: [0, 0, 0, 0] for u in order}, "turn": order[0], "phase": "roll",
-            "dice": None, "movable": [], "winner": None, "rid": 0, "ev": None}
+            "dice": None, "movable": [], "winner": None, "rid": 0, "ev": None, "tries": 0, "ver": 0}
 
 
 def ludo_next(st):
+    st["ver"] += 1
     o = st["order"]
     st["turn"] = o[(o.index(st["turn"]) + 1) % len(o)]
-    st["phase"], st["movable"] = "roll", []
+    st["phase"], st["movable"], st["tries"] = "roll", [], 0
 
 
 def ludo_roll(st):
+    st["ver"] += 1
     u, d = st["turn"], random.randint(1, 6)
     st["dice"], st["rid"], st["ev"] = d, st["rid"] + 1, None
     st["movable"] = [i for i, p in enumerate(st["tokens"][u]) if (p == 0 and d == 6) or (0 < p < 57 and p + d <= 57)]
     if st["movable"]:
         st["phase"] = "move"
+    elif all(p == 0 for p in st["tokens"][u]) and st["tries"] < 2:
+        st["tries"] += 1  # semua bidak masih di kandang: boleh lempar sampai 3 kali
+        st["ev"] = "retry"
     else:
         st["ev"] = "nomove"
         ludo_next(st)
@@ -104,6 +110,8 @@ def ludo_roll(st):
 
 def ludo_move(st, i):
     u, d = st["turn"], st["dice"]
+    st["tries"] = 0
+    st["ver"] += 1
     ci, tk, ev = st["colors"][u], st["tokens"][u], None
     tk[i] = 1 if tk[i] == 0 else tk[i] + d
     if tk[i] == 57:
@@ -129,8 +137,6 @@ def ludo_act(r, st, uid, host, t, msg):
         ludo_roll(st)
     elif t == "move" and st["phase"] == "move" and uid == st["turn"] and msg.get("tk") in st["movable"]:
         ludo_move(st, msg["tk"])
-    elif t == "skip" and host and st["phase"] != "over":
-        ludo_next(st)
     elif t == "again" and host and st["phase"] == "over":
         r["state"] = ludo_new(r)
     else:
@@ -138,13 +144,40 @@ def ludo_act(r, st, uid, host, t, msg):
     return True
 
 
-async def push(code):
+async def push0(code):
     r = ROOMS.get(code)
     if r:
         await cast(code, {"t": "room", "code": code, "game": r["game"], "host": r["host"],
                           "started": r["started"], "state": pub(r),
                           "players": [{"id": i, "name": p["name"], "photo": p["photo"],
                                        "on": p["ws"] is not None} for i, p in r["players"].items()]})
+
+
+async def push(code):
+    await push0(code)
+    arm(code)
+
+
+def arm(code, delay=None):
+    r = ROOMS.get(code)
+    st = r and r["state"]
+    if st and st["g"] == "ludo" and st["phase"] in ("roll", "move") and st.get("armed") != st["ver"]:
+        st["armed"] = st["ver"]
+        spawn(autoplay(code, st["ver"], delay or TURN_SECS))
+
+
+async def autoplay(code, ver, delay):
+    await asyncio.sleep(delay)
+    r = ROOMS.get(code)
+    st = r and r["state"]
+    if not st or st["g"] != "ludo" or st["ver"] != ver or st["phase"] not in ("roll", "move"):
+        return
+    if st["phase"] == "roll":
+        ludo_roll(st)
+    else:
+        ludo_move(st, random.choice(st["movable"]))
+    await push0(code)
+    arm(code, 3 if st["phase"] == "move" else None)
 
 
 def maybe_reveal(r):
@@ -178,6 +211,7 @@ async def remove(code, uid):
                 r["started"], r["state"] = False, None
             elif was:
                 st["turn"], st["phase"], st["movable"] = st["order"][i % len(st["order"])], "roll", []
+                st["ver"] += 1
         else:
             st["subs"].pop(uid, None)
             if len(st["order"]) < 2:
@@ -216,8 +250,6 @@ async def play(code, uid, t, msg):
     elif st["g"] == "ludo":
         if not ludo_act(r, st, uid, host, t, msg):
             return
-    elif t == "skip" and host:
-        fresh(st)
     elif t == "spin" and st["phase"] == "idle" and uid == st["spinner"]:
         st["target"] = random.choice(st["order"])
         st["kind"] = random.choice(("truth", "dare"))  # dipilih sistem supaya adil
@@ -301,7 +333,7 @@ async def ws_handler(req):
                         await push(code)
                     else:
                         await send(ws, {"t": "error", "m": f"Butuh {lo} sampai {hi} pemain."})
-            elif t in ("spin", "submit", "reveal", "done", "skip", "end", "roll", "move", "again") and code in ROOMS:
+            elif t in ("spin", "submit", "reveal", "done", "end", "roll", "move", "again") and code in ROOMS:
                 await play(code, uid, t, msg)
             elif t in ("chat", "react") and code in ROOMS and time.time() - last > 0.35:
                 last = time.time()
