@@ -4,8 +4,11 @@ from urllib.parse import parse_qsl
 from aiohttp import web, WSMsgType, ClientSession, ClientTimeout
 
 TOKEN = os.environ["BOT_TOKEN"]
-LIMITS = {"tod": (2, 10)}
+LIMITS = {"tod": (2, 10), "ludo": (2, 4)}
 CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+START = [1, 14, 27, 40]  # petak mulai tiap warna di jalur 52 petak
+SAFE = {1, 14, 27, 40, 9, 22, 35, 48}
+SEATS = {2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3]}
 REACTS = {"heart", "laugh", "fire", "star", "wow", "like"}
 MAX_AUTH_AGE, GRACE = 86400, 40
 ROOMS, TASKS, BOT = {}, set(), {"username": ""}
@@ -64,9 +67,75 @@ def pub(r):
     st = r["state"]
     if not st:
         return None
-    return {"order": st["order"], "spinner": st["spinner"], "round": st["round"], "phase": st["phase"],
+    if st["g"] == "ludo":
+        return {k: st[k] for k in ("g", "order", "colors", "tokens", "turn", "phase", "dice", "movable", "winner", "rid", "ev")}
+    return {"g": "tod", "order": st["order"], "spinner": st["spinner"], "round": st["round"], "phase": st["phase"],
             "target": st["target"], "spin": st["spin"], "kind": st["kind"],
             "sent": list(st["subs"]), "cards": st["cards"] if st["phase"] == "do" else []}
+
+
+def cell(ci, p):
+    return (START[ci] + p - 1) % 52
+
+
+def ludo_new(r):
+    order = list(r["players"])
+    return {"g": "ludo", "order": order, "colors": dict(zip(order, SEATS[len(order)])),
+            "tokens": {u: [0, 0, 0, 0] for u in order}, "turn": order[0], "phase": "roll",
+            "dice": None, "movable": [], "winner": None, "rid": 0, "ev": None}
+
+
+def ludo_next(st):
+    o = st["order"]
+    st["turn"] = o[(o.index(st["turn"]) + 1) % len(o)]
+    st["phase"], st["movable"] = "roll", []
+
+
+def ludo_roll(st):
+    u, d = st["turn"], random.randint(1, 6)
+    st["dice"], st["rid"], st["ev"] = d, st["rid"] + 1, None
+    st["movable"] = [i for i, p in enumerate(st["tokens"][u]) if (p == 0 and d == 6) or (0 < p < 57 and p + d <= 57)]
+    if st["movable"]:
+        st["phase"] = "move"
+    else:
+        st["ev"] = "nomove"
+        ludo_next(st)
+
+
+def ludo_move(st, i):
+    u, d = st["turn"], st["dice"]
+    ci, tk, ev = st["colors"][u], st["tokens"][u], None
+    tk[i] = 1 if tk[i] == 0 else tk[i] + d
+    if tk[i] == 57:
+        ev = "finish"
+    elif tk[i] <= 51 and cell(ci, tk[i]) not in SAFE:
+        for o in st["order"]:
+            if o != u:
+                for k, q in enumerate(st["tokens"][o]):
+                    if 0 < q <= 51 and cell(st["colors"][o], q) == cell(ci, tk[i]):
+                        st["tokens"][o][k], ev = 0, "capture"
+    if all(p == 57 for p in tk):
+        st["phase"], st["winner"], st["movable"], st["ev"] = "over", u, [], "win"
+        return
+    st["movable"], st["ev"] = [], ev or ("six" if d == 6 else None)
+    if d == 6 or ev:
+        st["phase"] = "roll"
+    else:
+        ludo_next(st)
+
+
+def ludo_act(r, st, uid, host, t, msg):
+    if t == "roll" and st["phase"] == "roll" and uid == st["turn"]:
+        ludo_roll(st)
+    elif t == "move" and st["phase"] == "move" and uid == st["turn"] and msg.get("tk") in st["movable"]:
+        ludo_move(st, msg["tk"])
+    elif t == "skip" and host and st["phase"] != "over":
+        ludo_next(st)
+    elif t == "again" and host and st["phase"] == "over":
+        r["state"] = ludo_new(r)
+    else:
+        return False
+    return True
 
 
 async def push(code):
@@ -80,7 +149,7 @@ async def push(code):
 
 def maybe_reveal(r):
     st = r["state"]
-    if not st or st["phase"] != "write":
+    if not st or st["g"] != "tod" or st["phase"] != "write":
         return
     need = [u for u in st["order"] if u != st["target"] and r["players"][u]["ws"] is not None]
     if st["subs"] and all(u in st["subs"] for u in need):
@@ -101,16 +170,24 @@ async def remove(code, uid):
         r["host"] = on[0] if on else next(iter(r["players"]))
     st = r["state"]
     if st and uid in st["order"]:
+        i, was = st["order"].index(uid), st.get("turn") == uid
         st["order"].remove(uid)
-        st["subs"].pop(uid, None)
-        if len(st["order"]) < 2:
-            r["started"], r["state"] = False, None
+        if st["g"] == "ludo":
+            st["tokens"].pop(uid, None)
+            if len(st["order"]) < 2:
+                r["started"], r["state"] = False, None
+            elif was:
+                st["turn"], st["phase"], st["movable"] = st["order"][i % len(st["order"])], "roll", []
         else:
-            if st["spinner"] == uid:
-                st["spinner"] = st["order"][0]
-            if st["target"] == uid:
-                fresh(st)
-            maybe_reveal(r)
+            st["subs"].pop(uid, None)
+            if len(st["order"]) < 2:
+                r["started"], r["state"] = False, None
+            else:
+                if st["spinner"] == uid:
+                    st["spinner"] = st["order"][0]
+                if st["target"] == uid:
+                    fresh(st)
+                maybe_reveal(r)
     await push(code)
 
 
@@ -136,6 +213,9 @@ async def play(code, uid, t, msg):
         r["started"], r["state"] = False, None
     elif not st:
         return
+    elif st["g"] == "ludo":
+        if not ludo_act(r, st, uid, host, t, msg):
+            return
     elif t == "skip" and host:
         fresh(st)
     elif t == "spin" and st["phase"] == "idle" and uid == st["spinner"]:
@@ -213,12 +293,15 @@ async def ws_handler(req):
                 if r["host"] == uid and not r["started"]:
                     if lo <= len(r["players"]) <= hi:
                         r["started"] = True
-                        r["state"] = {"order": list(r["players"]), "spinner": uid, "round": 1, "spin": 0}
-                        fresh(r["state"])
+                        if r["game"] == "ludo":
+                            r["state"] = ludo_new(r)
+                        else:
+                            r["state"] = {"g": "tod", "order": list(r["players"]), "spinner": uid, "round": 1, "spin": 0}
+                            fresh(r["state"])
                         await push(code)
                     else:
                         await send(ws, {"t": "error", "m": f"Butuh {lo} sampai {hi} pemain."})
-            elif t in ("spin", "submit", "reveal", "done", "skip", "end") and code in ROOMS:
+            elif t in ("spin", "submit", "reveal", "done", "skip", "end", "roll", "move", "again") and code in ROOMS:
                 await play(code, uid, t, msg)
             elif t in ("chat", "react") and code in ROOMS and time.time() - last > 0.35:
                 last = time.time()
