@@ -143,6 +143,18 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
 @keyframes dr{to{transform:rotate(360deg)}}
 .ev{color:var(--p4)}
 .say.dn,.pc .say{bottom:auto;top:100%;margin:6px 0 0}
+.sq{cursor:pointer}
+.minfo{margin:8px 0 0;padding:12px 14px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;box-shadow:3px 3px 0 var(--ink)}
+.minfo .ih{display:flex;align-items:center;gap:8px;margin-bottom:4px}.minfo .ih i{width:16px;height:16px;border-radius:5px;border:2px solid var(--ink)}
+.minfo b{font:400 17px var(--d)}.minfo p{font-size:13px;color:var(--mut);font-weight:700}
+.pc .mny{font-size:10px;font-weight:800;color:var(--mut);text-align:center;line-height:1.2}
+.ev2{text-align:center;font-weight:700;font-size:13px}.ev2.old{color:var(--mut);font-weight:600}
+.own{margin-top:12px;padding:10px 12px;border:2.5px solid var(--ink);border-radius:18px;background:#fff;box-shadow:3px 3px 0 var(--ink)}
+.own summary{font-weight:800;cursor:pointer}
+.orow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1.5px dashed rgba(17,17,17,.2)}
+.orow i{flex:none;width:14px;height:14px;border-radius:4px;border:2px solid var(--ink)}
+.oi{flex:1;min-width:0;font-size:13px;font-weight:700}.oa{display:flex;gap:6px}
+.mini{padding:6px 10px;border:2px solid var(--ink);border-radius:10px;background:var(--p1);font:800 12px var(--f);cursor:pointer}.mini:disabled{opacity:.4}
 </style>
 </head>
 <body>
@@ -200,7 +212,9 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
     <svg id="bottleW" viewBox="0 0 40 120" aria-hidden="true"><use href="#bottle"/></svg>
   </div>
   <div id="ludo" hidden><div class="pl" id="plist"></div><div class="board"><svg id="bsvg" viewBox="0 0 150 150" role="img" aria-label="Papan Ludo"></svg></div></div>
+  <div id="mono" hidden><div class="pl" id="mplist"></div><div class="board"><svg id="msvg" viewBox="0 0 110 110" role="img" aria-label="Papan Monopoly"></svg></div><div class="minfo" id="minfo" hidden></div></div>
   <div class="panel" id="panel"></div>
+  <details class="own" id="mown" hidden><summary id="ownsum"></summary><div id="ownlist"></div></details>
   <div id="hostctl" hidden><button class="btn ghost sm" id="endBtn">Akhiri game</button></div>
   <div class="chat"><div id="log" aria-live="polite"></div><div class="rxs" id="rxs"></div>
     <form id="cform"><input id="cin" maxlength="200" placeholder="Tulis pesan" autocomplete="off"><button class="send" aria-label="Kirim"><svg class="ic"><use href="#i-send"/></svg></button></form></div>
@@ -214,6 +228,7 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
 const PAL=["#ff8fc8","#ffd6ec","#f9a8d4","#ffffff","#ffb3dc","#f58cbf"],PK=["#ff8fc8","#f06cb3","#ffb3dc","#ff6fb5","#f9a8d4"];
 const RX=[["heart","Hati"],["laugh","Tawa"],["fire","Api"],["star","Bintang"],["wow","Kaget"],["like","Suka"]];
 const GL={
+ house:c=>`<path d="M6 28L28 8l22 20v20H6z" fill="${c}"/><rect x="22" y="32" width="12" height="16" rx="2" fill="#111"/>`,
  can:c=>`<rect x="14" y="22" width="28" height="30" rx="7" fill="${c}"/><rect x="19" y="10" width="18" height="14" rx="3" fill="#111"/><rect x="26" y="4" width="4" height="7" rx="1.5" fill="#fff"/><path d="M22 44V30l12 14V30" stroke="#111" stroke-width="3" stroke-linecap="round"/>`,
  ludo:c=>`<rect x="8" y="8" width="18" height="18" rx="5" fill="${c}"/><rect x="30" y="8" width="18" height="18" rx="5" fill="${c}" opacity=".6"/><rect x="8" y="30" width="18" height="18" rx="5" fill="${c}" opacity=".6"/><rect x="30" y="30" width="18" height="18" rx="5" fill="${c}"/>`,
  wolf:c=>`<path d="M36 6a22 22 0 1 0 14 40A18 18 0 0 1 36 6z" fill="${c}"/>`,
@@ -231,6 +246,7 @@ const GL={
 };
 const SOON=[
  ["Ludo","Keliling papan, jegal bidak teman","ludo","","Papan",true,"ludo"],
+ ["Monopoly","Beli properti, tarik sewa, bangun rumah dan hotel","house","","Papan",true,"mono"],
  ["Werewolf / Mafia","Cari serigala atau mafia di antara warga","wolf","","Sosial"],
  ["Truth or Dare","Duduk melingkar, spray yang menentukan","can","","Meja",true,"tod"],
  ["Panjat Gunung","Lompat sampai puncak, balapan","peak","","Aksi"],
@@ -320,9 +336,9 @@ seg(0,6,1,0,6);seg(6,5,0,-1,6);seg(7,0,1,0,2);seg(8,1,0,1,5);seg(9,6,1,0,6);seg(
 const HOME=[[1,7],[7,1],[13,7],[7,13]].map(([x,y],i)=>[0,1,2,3,4].map(k=>[[x+k,y],[x,y+k],[x-k,y],[x,y-k]][i]));
 const YB=[[0,0],[9,0],[9,9],[0,9]],YS=[[1.5,1.5],[4.5,1.5],[1.5,4.5],[4.5,4.5]],FD=[[-1,0],[0,-1],[1,0],[0,1]];
 const EVT={nomove:"Tidak ada bidak yang bisa jalan.",capture:"Bidak lawan termakan!",six:"Dapat 6, lempar lagi.",finish:"Satu bidak sampai tujuan!"};
-const PGR=[["#ff8a84","#f0453f","#b92a26"],["#6fe3a2","#2fbf71","#1c8f52"],["#ffe27a","#ffc933","#d39b0a"],["#7db6ff","#3b8ef0","#2461b8"]];
+const PGR=[["#ff8a84","#f0453f","#b92a26"],["#6fe3a2","#2fbf71","#1c8f52"],["#ffe27a","#ffc933","#d39b0a"],["#7db6ff","#3b8ef0","#2461b8"],["#c9a2f7","#9b5de5","#6b30b5"],["#ffb27a","#ff8c42","#c85f1a"]];
 function boardSVG(){
-  let o=`<defs>${PGR.map((c,i)=>`<radialGradient id="pg${i}" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="${c[0]}"/><stop offset=".55" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[2]}"/></radialGradient>`).join("")}</defs>`;
+  let o="";
   YB.forEach((b,i)=>{const x=b[0]*10,y=b[1]*10;o+=`<rect x="${x+1}" y="${y+1}" width="58" height="58" rx="8" fill="${LC[i]}" stroke="#111" stroke-width="1.4"/><rect x="${x+9}" y="${y+9}" width="42" height="42" rx="6" fill="#fff" stroke="#111" stroke-width="1"/>`;YS.forEach(q=>{o+=`<circle cx="${x+q[0]*10}" cy="${y+q[1]*10}" r="5" fill="${LC[i]}" fill-opacity=".35" stroke="#111" stroke-width=".8"/>`})});
   PATH.forEach(([x,y],i)=>{const si=START.indexOf(i);o+=`<rect x="${x*10+.6}" y="${y*10+.6}" width="8.8" height="8.8" rx="1.6" fill="${si>=0?LC[si]:"#fff"}" stroke="#111" stroke-width=".8"/>`;if(SAFE.has(i)&&si<0)o+=`<path d="M${x*10+5} ${y*10+2}l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z" fill="#111"/>`});
   HOME.forEach((c,i)=>c.forEach(([x,y])=>{o+=`<rect x="${x*10+.6}" y="${y*10+.6}" width="8.8" height="8.8" rx="1.6" fill="${LC[i]}" stroke="#111" stroke-width=".8"/>`}));
@@ -394,6 +410,152 @@ function chatMsg(m){
   const el=seatEl[m.from];
   if(el){const sy=h("div","say"+(parseFloat(el.style.top)>55?" dn":""),m.text.length>60?m.text.slice(0,58)+"…":m.text);el.append(sy);setTimeout(()=>sy.remove(),3300)}
 }
+const MC=["#f0453f","#2fbf71","#ffc933","#3b8ef0","#9b5de5","#ff8c42"],GCOL={br:"#8d5a3b",lb:"#8fd3f4",pk:"#f06cb3",or:"#ff9f43",rd:"#e8433f",yl:"#ffd23f",gr:"#2fbf71",db:"#2d5ff0"};
+let mShown={},mRid=-1,mBusy=false,mSel=-1,mDice=[1,1],mTok={};
+(()=>{const d=document.createElementNS(NS,"svg");d.setAttribute("width","0");d.setAttribute("height","0");d.style.position="absolute";d.innerHTML="<defs>"+PGR.map((c,i)=>`<radialGradient id="pg${i}" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="${c[0]}"/><stop offset=".55" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[2]}"/></radialGradient>`).join("")+"</defs>";document.body.prepend(d)})();
+const rp=n=>"Rp"+Number(n).toLocaleString("id-ID");
+const sqPos=i=>i<=10?[10-i,10]:i<=20?[0,20-i]:i<=30?[i-20,0]:[10,i-30];
+const sqSide=i=>i<10?"b":i<20?"l":i<30?"t":"r";
+const PIPS={1:[[32,32]],2:[[20,20],[44,44]],3:[[18,18],[32,32],[46,46]],4:[[20,20],[44,20],[20,44],[44,44]],5:[[18,18],[46,18],[32,32],[18,46],[46,46]],6:[[20,16],[44,16],[20,32],[44,32],[20,48],[44,48]]};
+function pawn(ci,sc){return `<g class="pw"><g transform="scale(${sc}) translate(0 -.3)"><ellipse cx="0" cy="4.5" rx="4.2" ry="1.3" fill="#111" opacity=".3"/><path d="M-4 4.3C-4 3.1-3 2.5-2.2 2.3H2.2C3 2.5 4 3.1 4 4.3z" fill="url(#pg${ci})" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><path d="M-2.6 2.3C-2.4.3-1.4-.8-1-2H1C1.4-.8 2.4.3 2.6 2.3z" fill="url(#pg${ci})" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="0" cy="-2" rx="2" ry=".75" fill="url(#pg${ci})" stroke="#111" stroke-width=".9"/><circle cx="0" cy="-3.7" r="2.3" fill="url(#pg${ci})" stroke="#111" stroke-width="1.1"/><ellipse cx="-.8" cy="-4.5" rx=".8" ry=".5" fill="#fff" opacity=".9" transform="rotate(-30 -.8 -4.5)"/></g></g>`}
+function glyph(s,i,x,y){
+  const T=(t,z,f,dx)=>`<text x="${x+5+(dx||0)}" y="${y+5+z*.36}" text-anchor="middle" font-size="${z}" font-weight="800" fill="${f||"#111"}" font-family="Titan One,Arial Black,sans-serif">${t}</text>`;
+  const PT=c=>`<text x="${x+5}" y="${y+9.3}" text-anchor="middle" font-size="2.3" font-weight="800" fill="#111" font-family="Titan One,Arial Black,sans-serif">${c}</text>`;
+  if(s.t==="go")return T("GO",4);if(s.t==="jail")return T("PENJARA",1.9);if(s.t==="park")return T("P",6);if(s.t==="gojail")return T("!",6,"#e0509f");
+  if(s.t==="chance")return T("?",6,"#e0509f");if(s.t==="chest")return T("DW",3.6);if(s.t==="tax")return T("%",5.4)+PT(s.c);
+  if(s.t==="p")return T(String(s.c),2.8,null,sqSide(i)==="l"?-1:sqSide(i)==="r"?1:0);
+  if(s.t==="r")return `<rect x="${x+2.2}" y="${y+2.6}" width="5.6" height="3" rx=".6" fill="#111"/><circle cx="${x+3.6}" cy="${y+6.4}" r=".8" fill="#111"/><circle cx="${x+6.4}" cy="${y+6.4}" r=".8" fill="#111"/>`+PT(s.c);
+  if(s.t==="u")return (i===12?`<path d="M${x+5.6} ${y+1.8}l-2.4 3.4h1.8l-.8 2.6 2.8-3.6h-1.8z" fill="#111"/>`:`<path d="M${x+5} ${y+2}c1.6 2 2.4 3 2.4 4a2.4 2.4 0 0 1-4.8 0c0-1 .8-2 2.4-4z" fill="#3b8ef0" stroke="#111" stroke-width=".4"/>`)+PT(s.c);
+  return "";
+}
+function monoBoard(st){
+  let o='<rect x="0" y="0" width="110" height="110" rx="3" fill="#fff"/><rect x="10" y="10" width="90" height="90" fill="#fff0f7"/>';
+  st.board.forEach((s,i)=>{
+    const [c,r]=sqPos(i),x=c*10,y=r*10;
+    o+=`<g class="sq" data-i="${i}"><rect x="${x+.3}" y="${y+.3}" width="9.4" height="9.4" fill="${i%10===0?"#ffd6ec":"#fff"}" stroke="#111" stroke-width=".5"/>`;
+    if(s.t==="p"){const sd=sqSide(i),v=sd==="l"||sd==="r";o+=`<rect x="${sd==="l"?x+7.3:x+.3}" y="${sd==="t"?y+7.3:y+.3}" width="${v?2.4:9.4}" height="${v?9.4:2.4}" fill="${GCOL[s.g]}" stroke="#111" stroke-width=".4"/>`}
+    o+=glyph(s,i,x,y)+"</g>";
+  });
+  return o+'<use href="#logo" x="27" y="20" width="56" height="25" transform="rotate(-6 55 32)"/><g id="mdice"></g><g id="mdyn"></g><g id="mtk"></g>';
+}
+function monoDyn(st){
+  let o="";
+  Object.entries(st.own).forEach(([k,ow])=>{
+    const i=+k,[c,r]=sqPos(i),x=c*10,y=r*10,sd=sqSide(i),ci=st.colors[ow.o],v=sd==="l"||sd==="r";
+    const isP=st.board[i].t==="p",dx=isP?5:8.4,dy=isP?(sd==="t"?1.9:8):1.7;
+    if(ow.m)o+=`<rect x="${x+.3}" y="${y+.3}" width="9.4" height="9.4" fill="#111" opacity=".4"/>`;
+    o+=`<circle cx="${x+dx}" cy="${y+dy}" r="1.5" fill="${MC[ci]}" stroke="#111" stroke-width=".5"/>`;
+    const bx=sd==="l"?x+7.3:x+.3,by=sd==="t"?y+7.3:y+.3;
+    if(ow.h===5)o+=v?`<rect x="${bx+.45}" y="${by+2.2}" width="1.5" height="5" fill="#e8433f" stroke="#111" stroke-width=".3"/>`:`<rect x="${bx+2.2}" y="${by+.45}" width="5" height="1.5" fill="#e8433f" stroke="#111" stroke-width=".3"/>`;
+    else for(let n=0;n<ow.h;n++)o+=v?`<rect x="${bx+.45}" y="${by+1.2+n*2.1}" width="1.5" height="1.5" fill="#2fbf71" stroke="#111" stroke-width=".3"/>`:`<rect x="${bx+1.2+n*2.1}" y="${by+.45}" width="1.5" height="1.5" fill="#2fbf71" stroke="#111" stroke-width=".3"/>`;
+  });
+  document.getElementById("mdyn").innerHTML=o;
+}
+function monoDiceDraw(st){
+  const d=rolling?mDice:st.dice,g=document.getElementById("mdice");if(!g)return;
+  g.innerHTML=[0,1].map(n=>{const x=33+n*24,y=54;return `<g transform="translate(${x} ${y}) scale(.3)"><rect x="4" y="4" width="56" height="56" rx="12" fill="#fff" stroke="#111" stroke-width="4"/>${(PIPS[d[n]]||[]).map(([a,b])=>`<circle cx="${a}" cy="${b}" r="5.5" fill="#111"/>`).join("")}</g>`}).join("");
+}
+function monoTok(){
+  const st=room&&room.state;if(!st||st.g!=="mono")return;const T=document.getElementById("mtk");if(!T)return;
+  const grp={};st.order.forEach(u=>{const p=mShown[u]==null?st.pos[u]:mShown[u];(grp[p]=grp[p]||[]).push(u)});
+  Object.keys(mTok).forEach(k=>{if(!st.order.includes(+k)){mTok[k].remove();delete mTok[k]}});
+  st.order.forEach(u=>{
+    const p=mShown[u]==null?st.pos[u]:mShown[u],[c,r]=sqPos(p),a=grp[p],k=a.indexOf(u),m=a.length>1;
+    let el=mTok[u];const fresh=!el;
+    if(fresh){el=document.createElementNS(NS,"g");el.setAttribute("class","tk");el.style.transition="none";el.innerHTML=pawn(st.colors[u],.62);T.append(el);mTok[u]=el}
+    el.style.transform=`translate(${(c+.5)*10+(m?(k-(a.length-1)/2)*2.2:0)}px,${(r+.5)*10+(m?(k%2?1:-1)*.9:.6)}px)`;
+    if(fresh){void el.getBoundingClientRect();el.style.transition=""}
+  });
+}
+function monoSnap(st){st.order.forEach(u=>mShown[u]=st.pos[u])}
+function monoStep(){
+  const st=room&&room.state;if(!st){mBusy=false;return}
+  mBusy=true;const jobs=[];
+  st.order.forEach(u=>{const from=mShown[u]==null?st.pos[u]:mShown[u],to=st.pos[u],d=(to-from+40)%40;if(!d)return;if(d<=12)for(let k=1;k<=d;k++)jobs.push([u,(from+k)%40]);else jobs.push([u,to])});
+  let n=0;
+  const iv=setInterval(()=>{
+    if(n>=jobs.length){clearInterval(iv);mBusy=false;if(room&&room.state){monoSnap(room.state);draw()}return}
+    const [u,p]=jobs[n++];mShown[u]=p;SFX.tick();monoTok();
+  },170);
+}
+function monoRollAnim(st){
+  rolling=true;mBusy=true;let n=0;
+  const iv=setInterval(()=>{
+    mDice=[1+(Math.random()*6|0),1+(Math.random()*6|0)];SFX.tick();if(room){monoDiceDraw(room.state);panel()}
+    if(++n>=9){clearInterval(iv);rolling=false;SFX.pop();monoStep();if(room)draw()}
+  },90);
+}
+function monoInfo(){
+  const st=room&&room.state,box=$("minfo");
+  if(!st||mSel<0){box.hidden=true;return}
+  const s=st.board[mSel],ow=st.own[mSel],head=h("div","ih"),L=[];
+  box.replaceChildren();box.hidden=false;
+  if(s.g){const b=h("i");b.style.background=GCOL[s.g];head.append(b)}head.append(h("b",null,s.n));box.append(head);
+  if("pru".includes(s.t))L.push(`Harga ${rp(s.c)} · gadai ${rp(s.c/2)}`);
+  if(s.t==="p"){L.push(`Sewa ${rp(s.r[0])} · satu warna penuh ${rp(s.r[0]*2)}`,`1 rumah ${rp(s.r[1])} · 2 rumah ${rp(s.r[2])} · 3 rumah ${rp(s.r[3])}`,`4 rumah ${rp(s.r[4])} · hotel ${rp(s.r[5])} · biaya per rumah ${rp(s.h)}`)}
+  if(s.t==="r")L.push("Sewa Rp25, 50, 100, atau 200 sesuai jumlah stasiun yang dimiliki");
+  if(s.t==="u")L.push("Sewa 4 kali angka dadu, atau 10 kali kalau memiliki keduanya");
+  if(s.t==="tax")L.push(`Bayar ${rp(s.c)} ke bank`);
+  if(s.t==="go")L.push("Lewat atau mendarat di sini: terima Rp200");
+  if(s.t==="jail")L.push("Hanya mampir kalau tidak sedang dipenjara");
+  if(s.t==="park")L.push("Istirahat. Tidak ada apa-apa di sini");
+  if(s.t==="gojail")L.push("Langsung masuk penjara");
+  if(s.t==="chance"||s.t==="chest")L.push("Ambil satu kartu");
+  if(ow)L.push(`Pemilik: ${nameOf(ow.o)}${ow.m?" (digadai)":""}${ow.h?` · ${ow.h===5?"hotel":ow.h+" rumah"}`:""}`);
+  L.forEach(t=>box.append(h("p",null,t)));
+}
+function drawMono(){
+  const st=room.state,svg=$("msvg");
+  const list=(st?st.order:room.players.map(p=>p.id)).map(id=>room.players.find(p=>p.id===id)).filter(Boolean);
+  seatEl={};
+  $("mplist").replaceChildren(...list.map((p,i)=>{
+    const c=h("div","pc"+(st&&st.turn===p.id&&st.phase!=="over"?" turn":"")),d=h("i");d.style.background=MC[st?st.colors[p.id]:i];
+    c.append(av(p,i,p.on?"":"off"),h("span","nm2",p.name+(p.id===me?" (kamu)":"")));
+    if(st)c.append(h("span","mny",rp(st.cash[p.id])+(st.jail[p.id]!=null?" · penjara":"")));
+    c.append(d);seatEl[p.id]=c;return c;
+  }));
+  if(!st){svg.dataset.ok="";svg.replaceChildren();mTok={};$("minfo").hidden=true;return}
+  if(!svg.dataset.ok){svg.innerHTML=monoBoard(st);svg.dataset.ok="1";mTok={}}
+  monoDyn(st);monoDiceDraw(st);monoTok();monoInfo();
+}
+$("msvg").onclick=e=>{const g=e.target.closest("[data-i]");if(!g||!room||!room.state)return;const i=+g.dataset.i;mSel=mSel===i?-1:i;monoInfo()};
+function monoK(k,B,st,host){
+  const mine=st.turn===me,nm=nameOf(st.turn),busy=rolling||mBusy;
+  if(st.phase==="over"){k.push(h("p","msg",`${nameOf(st.winner)} memenangkan permainan!`));if(host)k.push(B("Main lagi",()=>send({t:"again"})));return}
+  st.ev.slice(-3).reverse().forEach((t,i)=>k.push(h("p","ev2"+(i?" old":""),t)));
+  if(busy){k.push(h("p","msg",rolling?"Dadu berputar…":"Bidak berjalan…"));return}
+  if(!mine){k.push(h("p","msg",st.phase==="debt"?`${nm} sedang mencari uang untuk membayar.`:`Giliran ${nm}.`));return}
+  if(st.phase==="roll"){
+    if(st.jail[me]!=null){
+      k.push(h("p","msg",`Kamu di penjara (percobaan ${st.jail[me]+1} dari 3). Lempar angka kembar untuk keluar.`));
+      const row=h("div","two");row.append(B("Bayar Rp50",()=>send({t:"jailpay"}),"ghost"));
+      if((st.free[me]||[]).length)row.append(B("Pakai kartu bebas",()=>send({t:"jailcard"}),"ghost"));k.push(row);
+    }
+    k.push(B("Lempar dadu",()=>send({t:"roll"})));
+  }else if(st.phase==="buy"){
+    const sq=st.board[st.buy];
+    k.push(h("p","msg",`${sq.n} dijual ${rp(sq.c)}. Mau beli?`),h("div","two",null,[B(`Beli ${rp(sq.c)}`,()=>send({t:"buy"})),B("Lewati",()=>send({t:"nobuy"}),"ghost")]));
+  }else if(st.phase==="act"){
+    k.push(h("p","msg",st.again?"Angka kembar, kamu lempar lagi.":"Atur propertimu kalau perlu, lalu akhiri giliran."),st.again?B("Lempar lagi",()=>send({t:"roll"})):B("Akhiri giliran",()=>send({t:"next"})));
+  }else if(st.phase==="debt"){
+    k.push(h("p","msg ev",`Kamu harus bayar ${rp(st.debt.amt)}${st.debt.to?" ke "+nameOf(st.debt.to):""}. Gadai properti atau jual rumah di daftar bawah, atau menyerah.`),B("Menyerah (bangkrut)",()=>send({t:"bankrupt"}),"alt"));
+  }
+  if(st.phase!=="debt")k.push(B("Menyerah",()=>{try{tg.showConfirm("Menyerah dan keluar dari permainan?",ok=>{if(ok)send({t:"bankrupt"})})}catch(e){send({t:"bankrupt"})}},"link"));
+}
+function monoOwn(st){
+  const box=$("mown"),mine=Object.entries(st.own).filter(([k,o])=>o.o===me).map(([k,o])=>({i:+k,o}));
+  box.hidden=!(room.started&&st.order.includes(me));if(box.hidden)return;
+  $("ownsum").textContent=`Propertimu (${mine.length}) · uang ${rp(st.cash[me])}`;
+  const can=st.turn===me&&["roll","act","debt"].includes(st.phase)&&!rolling&&!mBusy,L=$("ownlist");L.replaceChildren();
+  mine.sort((a,b)=>a.i-b.i).forEach(({i,o})=>{
+    const s=st.board[i],row=h("div","orow"),sw=h("i");sw.style.background=s.g?GCOL[s.g]:"#111";
+    const tag=o.m?"digadai":s.t==="p"?(o.h===5?"hotel":o.h+" rumah"):"";
+    const acts=h("span","oa"),mk=(t,l)=>{const b=h("button","mini",l);b.type="button";b.disabled=!can;b.onclick=()=>{hap("light");send({t,i})};acts.append(b)};
+    if(o.m)mk("unmort","Tebus");else{if(s.t==="p"){mk("build","+ Rumah");if(o.h>0)mk("sell","- Rumah")}mk("mort","Gadai")}
+    row.append(sw,h("span","oi",s.n+(tag?" · "+tag:"")),acts);L.append(row);
+  });
+  if(!mine.length)L.append(h("p","msg","Belum punya properti."));
+}
 function onRoom(m){
   room=m;pending=false;lock(false);const st=m.state;
   if(st){
@@ -409,14 +571,19 @@ function onRoom(m){
       if(ps.size===1){autoRid=st.rid;setTimeout(()=>{const c=room&&room.state;if(c&&c.phase==="move"&&c.rid===st.rid)send({t:"move",tk:st.movable[0]})},1200)}
     }
   }else lastRid=-1;
+  if(st&&st.g==="mono"){
+    const first=mRid<0;
+    if(st.rid!==mRid){mRid=st.rid;if(!first&&st.rid>0&&!mBusy)monoRollAnim(st);else if(!mBusy)monoSnap(st)}
+    else if(!mBusy)monoSnap(st);
+  }else{mRid=-1;mShown={};mBusy=false;mSel=-1}
   if(cur()!=="room"){$("log").replaceChildren()}
   draw();show("room");
 }
-const LIM={tod:[2,10],ludo:[2,4]},GN={tod:"Truth or Dare",ludo:"Ludo"};
+const LIM={tod:[2,10],ludo:[2,4],mono:[2,6]},GN={tod:"Truth or Dare",ludo:"Ludo",mono:"Monopoly"};
 function draw(){
-  const lu=room.game==="ludo";
-  $("stage").hidden=lu;$("ludo").hidden=!lu;$("rtitle").textContent=GN[room.game]||"";
-  if(lu)drawLudo();else drawTable();
+  const lu=room.game==="ludo",mo=room.game==="mono";
+  $("stage").hidden=lu||mo;$("ludo").hidden=!lu;$("mono").hidden=!mo;$("rtitle").textContent=GN[room.game]||"";
+  if(lu)drawLudo();else if(mo)drawMono();else drawTable();
   const cnt=room.players.length,[mn,mx]=LIM[room.game]||[2,10];
   $("codeTxt").textContent=room.code;
   $("lobbyCard").hidden=room.started;$("codeBtn").hidden=!room.started;
@@ -425,6 +592,7 @@ function draw(){
   $("ctxt").textContent=`${cnt} dari ${mx} pemain. Minimal ${mn} untuk mulai.`;
   $("hostctl").hidden=!(room.started&&room.host===me);
   panel();
+  if(mo&&room.state)monoOwn(room.state);else $("mown").hidden=true;
 }
 function drawTable(){
   const st=room.state,list=st?st.order.map(id=>room.players.find(p=>p.id===id)).filter(Boolean):room.players.slice();
@@ -451,6 +619,7 @@ function panel(){
     k.push(h("p","msg",host?(n<2?"Tunggu teman masuk dengan kode room di atas.":"Sudah cukup. Mulai kalau semua siap."):"Menunggu tuan rumah memulai game."));
     if(host){const b=B("Mulai game",()=>send({t:"start"}));b.disabled=n<2;k.push(b)}
   }else if(room.game==="ludo")ludoK(k,B,st,host);
+  else if(room.game==="mono")monoK(k,B,st,host);
   else if(spinning)k.push(h("p","msg","Spray berputar…"));
   else if(st.phase==="idle"){
     if(st.spinner===me)k.push(h("p","msg","Giliranmu memutar spray."),B("Putar spray",()=>send({t:"spin"})));
@@ -500,7 +669,7 @@ function connect(){
       if(queue){const q=queue;queue=null;send(q)}
     }
     else if(m.t==="room")onRoom(m);
-    else if(m.t==="left"){room=null;lastSpin=null;show("home")}
+    else if(m.t==="left"){room=null;lastSpin=null;mRid=-1;mShown={};mBusy=false;mSel=-1;show("home")}
     else if(m.t==="chat"){chatMsg(m);SFX.pop()}
     else if(m.t==="react")floatReact(m.from,m.k);
     else if(m.t==="error"){pending=false;lock(false);toast(m.m);if(m.c==="notfound")room=null;if(!room&&["splash","room"].includes(cur()))enter()}
