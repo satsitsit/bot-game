@@ -136,9 +136,9 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
 .pc .av{width:48px;height:48px;font-size:19px}.pc .nm2{max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pc.turn .av{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--ink),0 0 20px rgba(240,108,179,.9)}
 .pc i{position:absolute;top:-4px;right:8px;width:14px;height:14px;border-radius:50%;border:2px solid var(--ink)}
-.tk{transition:transform .45s cubic-bezier(.3,.7,.2,1)}.tk circle{transform-box:fill-box;transform-origin:center}
-.tk.go{cursor:pointer}.tk.go circle:nth-child(2){animation:tp .7s ease-in-out infinite alternate}
-@keyframes tp{to{transform:scale(1.3)}}
+.tk{transition:transform .45s cubic-bezier(.3,.7,.2,1)}.tk .pw,.tk .ring{transform-box:fill-box;transform-origin:center}.tk .ring{display:none}
+.tk.go{cursor:pointer}.tk.go .pw{animation:tp .7s ease-in-out infinite alternate}@keyframes rs{to{transform:rotate(360deg)}}
+@keyframes tp{to{transform:scale(1.22)}}
 .dice{align-self:center;width:64px;height:64px;filter:drop-shadow(3px 3px 0 var(--ink))}.dice.roll{animation:dr .45s linear infinite}
 @keyframes dr{to{transform:rotate(360deg)}}
 .ev{color:var(--p4)}
@@ -201,7 +201,7 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
   </div>
   <div id="ludo" hidden><div class="pl" id="plist"></div><div class="board"><svg id="bsvg" viewBox="0 0 150 150" role="img" aria-label="Papan Ludo"></svg></div></div>
   <div class="panel" id="panel"></div>
-  <div class="two" id="hostctl" hidden><button class="btn ghost sm" id="skipBtn">Lewati giliran</button><button class="btn ghost sm" id="endBtn">Akhiri game</button></div>
+  <div id="hostctl" hidden><button class="btn ghost sm" id="endBtn">Akhiri game</button></div>
   <div class="chat"><div id="log" aria-live="polite"></div><div class="rxs" id="rxs"></div>
     <form id="cform"><input id="cin" maxlength="200" placeholder="Tulis pesan" autocomplete="off"><button class="send" aria-label="Kirim"><svg class="ic"><use href="#i-send"/></svg></button></form></div>
   <button class="btn link" id="leave">Keluar room</button>
@@ -314,14 +314,15 @@ function spin(st){
   let t=0,gap=45;while(t<4700){setTimeout(SFX.tick,t);gap*=1.075;t+=gap}
   setTimeout(()=>{spinning=false;SFX.ding();setTimeout(()=>SFX[st.kind==="truth"?"truth":"dare"](),450);if(room)draw()},5100);
 }
-const NS="http://www.w3.org/2000/svg",LC=["#ff6fb5","#6ec6ff","#ffd84a","#6ee7b7"],PATH=[],START=[1,14,27,40],SAFE=new Set([1,14,27,40,9,22,35,48]);
+const NS="http://www.w3.org/2000/svg",LC=["#f0453f","#2fbf71","#ffc933","#3b8ef0"],LB=["#f0453f","#2fbf71","#ffc933","#3b8ef0"],PATH=[],START=[1,14,27,40],SAFE=new Set([1,14,27,40,9,22,35,48]);
 const seg=(x,y,dx,dy,n)=>{for(let i=0;i<n;i++)PATH.push([x+dx*i,y+dy*i])};
 seg(0,6,1,0,6);seg(6,5,0,-1,6);seg(7,0,1,0,2);seg(8,1,0,1,5);seg(9,6,1,0,6);seg(14,7,0,1,2);seg(13,8,-1,0,5);seg(8,9,0,1,6);seg(7,14,-1,0,2);seg(6,13,0,-1,5);seg(5,8,-1,0,6);seg(0,7,0,0,1);
 const HOME=[[1,7],[7,1],[13,7],[7,13]].map(([x,y],i)=>[0,1,2,3,4].map(k=>[[x+k,y],[x,y+k],[x-k,y],[x,y-k]][i]));
 const YB=[[0,0],[9,0],[9,9],[0,9]],YS=[[1.5,1.5],[4.5,1.5],[1.5,4.5],[4.5,4.5]],FD=[[-1,0],[0,-1],[1,0],[0,1]];
 const EVT={nomove:"Tidak ada bidak yang bisa jalan.",capture:"Bidak lawan termakan!",six:"Dapat 6, lempar lagi.",finish:"Satu bidak sampai tujuan!"};
+const PGR=[["#ff8a84","#f0453f","#b92a26"],["#6fe3a2","#2fbf71","#1c8f52"],["#ffe27a","#ffc933","#d39b0a"],["#7db6ff","#3b8ef0","#2461b8"]];
 function boardSVG(){
-  let o="";
+  let o=`<defs>${PGR.map((c,i)=>`<radialGradient id="pg${i}" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="${c[0]}"/><stop offset=".55" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[2]}"/></radialGradient>`).join("")}</defs>`;
   YB.forEach((b,i)=>{const x=b[0]*10,y=b[1]*10;o+=`<rect x="${x+1}" y="${y+1}" width="58" height="58" rx="8" fill="${LC[i]}" stroke="#111" stroke-width="1.4"/><rect x="${x+9}" y="${y+9}" width="42" height="42" rx="6" fill="#fff" stroke="#111" stroke-width="1"/>`;YS.forEach(q=>{o+=`<circle cx="${x+q[0]*10}" cy="${y+q[1]*10}" r="5" fill="${LC[i]}" fill-opacity=".35" stroke="#111" stroke-width=".8"/>`})});
   PATH.forEach(([x,y],i)=>{const si=START.indexOf(i);o+=`<rect x="${x*10+.6}" y="${y*10+.6}" width="8.8" height="8.8" rx="1.6" fill="${si>=0?LC[si]:"#fff"}" stroke="#111" stroke-width=".8"/>`;if(SAFE.has(i)&&si<0)o+=`<path d="M${x*10+5} ${y*10+2}l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z" fill="#111"/>`});
   HOME.forEach((c,i)=>c.forEach(([x,y])=>{o+=`<rect x="${x*10+.6}" y="${y*10+.6}" width="8.8" height="8.8" rx="1.6" fill="${LC[i]}" stroke="#111" stroke-width=".8"/>`}));
@@ -353,7 +354,7 @@ function drawLudo(){
     if(g.length>1&&it.p!==0){const a=2*Math.PI*g.indexOf(idx)/g.length;ox=Math.cos(a)*.24;oy=Math.sin(a)*.24}
     const key=it.u+"-"+it.t;let el=tokEls[key];const fresh=!el;
     if(fresh){el=document.createElementNS(NS,"g");el.setAttribute("class","tk");el.style.transition="none";
-      el.innerHTML=`<circle r="6.4" fill="transparent"/><circle r="3.7" fill="${LC[it.ci]}" stroke="#111" stroke-width="1.3"/><circle cx="-1.3" cy="-1.4" r="1.1" fill="#fff" opacity=".85"/>`;
+      el.innerHTML=`<circle r="6.4" fill="transparent"/><g class="pw"><g transform="scale(1.12) translate(0 -.3)"><ellipse cx="0" cy="4.5" rx="4.2" ry="1.3" fill="#111" opacity=".3"/><path d="M-4 4.3C-4 3.1-3 2.5-2.2 2.3H2.2C3 2.5 4 3.1 4 4.3z" fill="url(#pg${it.ci})" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><path d="M-2.6 2.3C-2.4.3-1.4-.8-1-2H1C1.4-.8 2.4.3 2.6 2.3z" fill="url(#pg${it.ci})" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="0" cy="-2" rx="2" ry=".75" fill="url(#pg${it.ci})" stroke="#111" stroke-width=".9"/><circle cx="0" cy="-3.7" r="2.3" fill="url(#pg${it.ci})" stroke="#111" stroke-width="1.1"/><ellipse cx="-.8" cy="-4.5" rx=".8" ry=".5" fill="#fff" opacity=".9" transform="rotate(-30 -.8 -4.5)"/></g></g>`;
       T.append(el);tokEls[key]=el}
     el.style.transform=`translate(${(it.x+ox)*10}px,${(it.y+oy)*10}px)`;
     if(fresh){void el.getBoundingClientRect();el.style.transition=""}
@@ -375,7 +376,8 @@ function ludoK(k,B,st,host){
   if(rolling)k.push(h("p","msg","Dadu berputar…"));
   else if(st.phase==="roll"){if(mine)k.push(h("p","msg","Giliranmu."),B("Lempar dadu",()=>send({t:"roll"})));else k.push(h("p","msg",`Giliran ${nm}.`))}
   else k.push(h("p","msg",mine?`Dapat ${st.dice}. Tap bidak yang mau jalan.`:`${nm} memilih bidak.`));
-  if(st.ev&&!rolling&&EVT[st.ev])k.push(h("p","msg ev",EVT[st.ev]));
+  if(!rolling&&st.ev==="retry")k.push(h("p","msg ev",`Belum dapat 6. Masih ada ${3-st.tries} kesempatan lagi.`));
+  else if(st.ev&&!rolling&&EVT[st.ev])k.push(h("p","msg ev",EVT[st.ev]));
 }
 function rollAnim(){
   rolling=true;let n=0;
@@ -481,7 +483,6 @@ function shareRoom(){
 $("rxs").replaceChildren(...RX.map(([k,l])=>{const b=h("button");b.type="button";b.setAttribute("aria-label",l);b.append(ico("r-"+k,"rx"));b.onclick=()=>{hap("light");send({t:"react",k})};return b}));
 $("cform").onsubmit=e=>{e.preventDefault();const v=$("cin").value.trim();if(v&&send({t:"chat",text:v})){$("cin").value="";hap("light")}};
 $("codeBtn").onclick=()=>{hap("light");copy(room.code)};
-$("skipBtn").onclick=()=>{hap("light");send({t:"skip"})};
 $("endBtn").onclick=()=>{hap("light");try{tg.showConfirm("Akhiri game untuk semua pemain?",ok=>{if(ok)send({t:"end"})})}catch(e){send({t:"end"})}};
 function leaveRoom(){hap("light");if(!send({t:"leave"}))toast("Belum tersambung")}
 $("leave").onclick=leaveRoom;
