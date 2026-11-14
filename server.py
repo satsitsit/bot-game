@@ -554,6 +554,7 @@ async def push0(code):
     if r:
         await cast(code, {"t": "room", "code": code, "game": r["game"], "host": r["host"],
                           "started": r["started"], "state": pub(r),
+                          "board": BOARD if r["game"] == "mono" else None,
                           "players": [{"id": i, "name": p["name"], "photo": p["photo"],
                                        "on": p["ws"] is not None} for i, p in r["players"].items()]})
 
