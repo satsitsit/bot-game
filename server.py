@@ -1,20 +1,21 @@
 import os, json, hmac, hashlib, random, time, asyncio
+from collections import Counter
 from pathlib import Path
 from urllib.parse import parse_qsl
 from aiohttp import web, WSMsgType, ClientSession, ClientTimeout
 
 TOKEN = os.environ["BOT_TOKEN"]
-LIMITS = {"tod": (2, 10), "ludo": (2, 4), "mono": (2, 6)}
+LIMITS = {"tod": (2, 10), "ludo": (2, 4), "mono": (2, 6), "mafia": (4, 12)}
 CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-TURN_SECS = 40  # Ludo: diam selama ini, server main otomatis
-START = [1, 14, 27, 40]  # petak mulai tiap warna di jalur 52 petak
+TURN_SECS = 40
+START = [1, 14, 27, 40]
 SAFE = {1, 14, 27, 40, 9, 22, 35, 48}
 SEATS = {2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3]}
 REACTS = {"heart", "laugh", "fire", "star", "wow", "like"}
 MAX_AUTH_AGE, GRACE = 86400, 40
 ROOMS, TASKS, BOT = {}, set(), {"username": ""}
 STATIC = Path(__file__).parent / "static"
-
+MF_SECS = {"reveal": 10, "night": 40, "dawn": 7, "day": 60, "vote": 30}
 
 def verify(raw):
     try:
@@ -29,21 +30,17 @@ def verify(raw):
     except Exception:
         return None
 
-
 def who(u):
     return str(u.get("first_name") or "").strip()[:16] or "Pemain"
-
 
 def photo(u):
     p = str(u.get("photo_url") or "")
     return p if p.startswith("https://t.me/i/userpic/") else ""
 
-
 def spawn(coro):
     t = asyncio.create_task(coro)
     TASKS.add(t)
     t.add_done_callback(TASKS.discard)
-
 
 async def send(ws, obj):
     if ws is not None and not ws.closed:
@@ -52,17 +49,14 @@ async def send(ws, obj):
         except Exception:
             pass
 
-
 async def cast(code, obj):
     for p in list(ROOMS[code]["players"].values()):
         await send(p["ws"], obj)
-
 
 def fresh(st, spinner=None):
     st.update(phase="idle", target=None, kind=None, subs={}, cards=[])
     if spinner:
         st["spinner"] = spinner
-
 
 def pub(r):
     st = r["state"]
@@ -76,10 +70,8 @@ def pub(r):
             "target": st["target"], "spin": st["spin"], "kind": st["kind"],
             "sent": list(st["subs"]), "cards": st["cards"] if st["phase"] == "do" else []}
 
-
 def cell(ci, p):
     return (START[ci] + p - 1) % 52
-
 
 def ludo_new(r):
     order = list(r["players"])
@@ -87,13 +79,11 @@ def ludo_new(r):
             "tokens": {u: [0, 0, 0, 0] for u in order}, "turn": order[0], "phase": "roll",
             "dice": None, "movable": [], "winner": None, "rid": 0, "ev": None, "tries": 0, "ver": 0}
 
-
 def ludo_next(st):
     st["ver"] += 1
     o = st["order"]
     st["turn"] = o[(o.index(st["turn"]) + 1) % len(o)]
     st["phase"], st["movable"], st["tries"] = "roll", [], 0
-
 
 def ludo_roll(st):
     st["ver"] += 1
@@ -105,7 +95,6 @@ def ludo_roll(st):
     else:
         st["ev"] = "nomove"
         ludo_next(st)
-
 
 def ludo_move(st, i):
     u, d = st["turn"], st["dice"]
@@ -130,7 +119,6 @@ def ludo_move(st, i):
     else:
         ludo_next(st)
 
-
 def ludo_act(r, st, uid, host, t, msg):
     if t == "roll" and st["phase"] == "roll" and uid == st["turn"]:
         ludo_roll(st)
@@ -142,8 +130,6 @@ def ludo_act(r, st, uid, host, t, msg):
         return False
     return True
 
-
-# ---------------- Monopoly (papan, harga, dan sewa mengikuti struktur klasik; nama petak dan kartu buatan sendiri) ----------------
 def _P(n, g, c, h, r): return {"t": "p", "n": n, "g": g, "c": c, "h": h, "r": r}
 def _R(n): return {"t": "r", "n": n, "c": 200}
 def _U(n): return {"t": "u", "n": n, "c": 150}
@@ -185,12 +171,10 @@ COMMUNITY = [("Salah hitung bank menguntungkanmu. Terima Rp200", "cash", 200), (
     ("Jasa konsultasi. Terima Rp25", "cash", 25), ("Perbaikan jalan: Rp40 per rumah, Rp115 per hotel", "rep", (40, 115))]
 FREEIDX = {"k": 11, "d": 4}
 
-
 def rp(n): return "Rp" + f"{n:,}".replace(",", ".")
 def log(st, text): st["ev"] = (st["ev"] + [text])[-6:]
 def own_of(st, i): o = st["own"].get(i); return o["o"] if o else None
 def owns_set(st, u, g): return all(own_of(st, j) == u for j in SETS[g])
-
 
 def mono_new(r):
     order = list(r["players"])
@@ -203,7 +187,6 @@ def mono_new(r):
             "winner": None, "dead": [], "ver": 0, "card": None, "cardn": 0,
             "end": time.time() + r.get("mins", 60) * 60 if r.get("mins", 60) else None}
 
-
 def worth(st, u):
     v = st["cash"][u]
     for i, o in st["own"].items():
@@ -211,10 +194,8 @@ def worth(st, u):
             v += (BOARD[i]["c"] // 2 if o["m"] else BOARD[i]["c"]) + o["h"] * BOARD[i].get("h", 0)
     return v
 
-
 def ranking(st):
     return sorted(([u, worth(st, u) if u in st["order"] else 0] for u in st["nm"]), key=lambda x: -x[1])
-
 
 def mono_pub(st):
     d = {k: st[k] for k in ("g", "order", "nm", "colors", "cash", "pos", "jail", "free", "own", "turn", "phase",
@@ -224,7 +205,6 @@ def mono_pub(st):
     if st["phase"] == "over":
         d["rank"] = ranking(st)
     return d
-
 
 def rent(st, i, total, x2=False, u10=False):
     s, o = BOARD[i], st["own"][i]
@@ -237,14 +217,12 @@ def rent(st, i, total, x2=False, u10=False):
         return v * 2 if x2 else v
     return total * (10 if u10 or all(own_of(st, j) == o["o"] for j in UTILS) else 4)
 
-
 def liquid(st, u):
     v = 0
     for i, o in st["own"].items():
         if o["o"] == u:
             v += o["h"] * BOARD[i].get("h", 0) // 2 + (0 if o["m"] else BOARD[i]["c"] // 2)
     return v
-
 
 def bankrupt(st, u, to):
     log(st, f"{st['nm'][u]} bangkrut")
@@ -266,7 +244,6 @@ def bankrupt(st, u, to):
     elif st["turn"] == u:
         st["turn"], st["phase"], st["dbl"], st["again"] = st["order"][i % len(st["order"])], "roll", 0, False
 
-
 def pay(st, u, amt, to=None):
     if amt <= 0:
         return True
@@ -281,7 +258,6 @@ def pay(st, u, amt, to=None):
         st["debt"], st["phase"] = {"to": to, "amt": amt}, "debt"
     return False
 
-
 def settle(st):
     d, u = st["debt"], st["turn"]
     if d and st["cash"][u] >= d["amt"]:
@@ -293,11 +269,9 @@ def settle(st):
         if p:
             move(st, u, p)
 
-
 def send_jail(st, u):
     st["pos"][u], st["jail"][u], st["again"], st["dbl"] = 10, 0, False, 0
     log(st, f"{st['nm'][u]} masuk penjara")
-
 
 def go_to(st, u, idx, total, x2=False, u10=False):
     old = st["pos"][u]
@@ -307,7 +281,6 @@ def go_to(st, u, idx, total, x2=False, u10=False):
         log(st, f"{st['nm'][u]} melewati MULAI, terima Rp200")
     land(st, u, idx, total, x2, u10)
 
-
 def move(st, u, total):
     old = st["pos"][u]
     new = (old + total) % 40
@@ -316,7 +289,6 @@ def move(st, u, total):
         st["cash"][u] += 200
         log(st, f"{st['nm'][u]} melewati MULAI, terima Rp200")
     land(st, u, new, total)
-
 
 def draw(st, u, kind, total):
     k = "k" if kind == "chance" else "d"
@@ -361,7 +333,6 @@ def draw(st, u, kind, total):
         ht = sum(1 for o in st["own"].values() if o["o"] == u and o["h"] == 5)
         pay(st, u, v[0] * hs + v[1] * ht)
 
-
 def land(st, u, idx, total, x2=False, u10=False):
     s, nm = BOARD[idx], st["nm"][u]
     if s["t"] in ("p", "r", "u"):
@@ -382,7 +353,6 @@ def land(st, u, idx, total, x2=False, u10=False):
         draw(st, u, s["t"], total)
     elif s["t"] == "gojail":
         send_jail(st, u)
-
 
 def mono_roll(st):
     u = st["turn"]
@@ -415,7 +385,6 @@ def mono_roll(st):
         st["dbl"] = 0
     move(st, u, total)
 
-
 def nxt(st):
     if st.get("end") and time.time() >= st["end"]:
         rk = ranking(st)
@@ -425,7 +394,6 @@ def nxt(st):
     o = st["order"]
     st["turn"] = o[(o.index(st["turn"]) + 1) % len(o)]
     st["phase"], st["dbl"], st["again"], st["buy"] = "roll", 0, False, None
-
 
 def manage(st, u, t, i):
     if not 0 <= i < 40 or BOARD[i]["t"] not in ("p", "r", "u"):
@@ -474,7 +442,6 @@ def manage(st, u, t, i):
         o["m"] = False
         st["cash"][u] -= cost
     return None
-
 
 def mono_act(r, st, uid, host, t, msg):
     if t == "again":
@@ -547,7 +514,6 @@ def mono_act(r, st, uid, host, t, msg):
         return None
     return "Aksi tidak dikenal."
 
-
 def mono_auto(st):
     ph, u = st["phase"], st["turn"]
     if ph == "roll" or (ph == "act" and st["again"]):
@@ -558,7 +524,6 @@ def mono_auto(st):
         nxt(st)
     elif ph == "debt":
         bankrupt(st, u, st["debt"]["to"])
-
 
 def mono_leave(st, uid, i, was):
     for k in [k for k, o in st["own"].items() if o["o"] == uid]:
@@ -571,32 +536,221 @@ def mono_leave(st, uid, i, was):
         st["turn"], st["phase"], st["dbl"], st["again"], st["buy"] = st["order"][i % len(st["order"])], "roll", 0, False, None
     st["ver"] += 1
 
+# ---------------- Mafia / Werewolf ----------------
+def _spawn_positions(order):
+    pos = {}
+    for u in order:
+        for _ in range(40):
+            x = random.uniform(12, 88)
+            y = random.uniform(30, 88)
+            if all(((x-p["x"])**2+(y-p["y"])**2)**0.5 > 14 for p in pos.values()):
+                pos[u] = {"x": round(x,1), "y": round(y,1)}
+                break
+        else:
+            pos[u] = {"x": round(random.uniform(12,88),1), "y": round(random.uniform(30,88),1)}
+    return pos
+
+def mf_alive(st): return [u for u in st["order"] if st["alive"].get(u)]
+
+def mf_new(r):
+    order = list(r["players"])
+    n, k = len(order), max(1, len(order) // 4)
+    roles = ["mafia"] * k + ["doctor", "detective"] + ["citizen"] * (n - k - 2)
+    random.shuffle(roles)
+    return {"g": "mafia", "order": order, "nm": {u: r["players"][u]["name"] for u in order},
+            "role": dict(zip(order, roles)), "alive": {u: True for u in order}, "phase": "reveal", "day": 1,
+            "ver": 0, "until": time.time() + MF_SECS["reveal"],
+            "act": {"kill": {}, "save": None, "check": None},
+            "ready": [], "last_save": None, "found": {}, "dawn": None, "votes": {}, "out": None, "winner": None,
+            "pos": _spawn_positions(order), "dir": {u: "down" for u in order}}
+
+def mf_pub(st, me):
+    mr, over = st["role"].get(me), st["phase"] == "over"
+    roles = {u: st["role"][u] for u in st["order"]
+             if over or not st["alive"].get(u) or u == me or (mr == "mafia" and st["role"][u] == "mafia")}
+    d = {"g": "mafia", "order": st["order"], "nm": st["nm"], "alive": st["alive"], "phase": st["phase"], "day": st["day"],
+         "roles": roles, "me": mr, "dawn": st["dawn"], "out": st["out"], "winner": st["winner"],
+         "left": max(0, int(st["until"] - time.time())) if st["until"] else None,
+         "voted": list(st["votes"]), "ready": st["ready"], "pos": st["pos"], "dir": st["dir"]}
+    if st["phase"] in ("vote", "over"):
+        d["votes"] = st["votes"]
+    if mr == "mafia":
+        d["picks"] = st["act"]["kill"]
+    elif mr == "doctor":
+        d["pick"], d["saved_last"] = st["act"]["save"], st["last_save"]
+    elif mr == "detective":
+        d["pick"], d["found"] = st["act"]["check"], st["found"]
+    return d
+
+def mf_phase(st, ph):
+    st["phase"] = ph
+    st["until"] = time.time() + MF_SECS[ph] if ph in MF_SECS else None
+    st["ver"] += 1
+
+def mf_win(st):
+    al = mf_alive(st)
+    m = sum(st["role"][u] == "mafia" for u in al)
+    if m == 0:
+        st["winner"] = "town"
+    elif m >= len(al) - m:
+        st["winner"] = "mafia"
+    if st["winner"]:
+        st["phase"], st["until"] = "over", None
+        st["ver"] += 1
+        return True
+    return False
+
+def mf_done(st):
+    al = mf_alive(st)
+    return (all(u in st["act"]["kill"] for u in al if st["role"][u] == "mafia")
+            and (st["act"]["save"] is not None or not any(st["role"][u] == "doctor" for u in al))
+            and (st["act"]["check"] is not None or not any(st["role"][u] == "detective" for u in al)))
+
+def mf_dawn(st):
+    picks = list(st["act"]["kill"].values())
+    victim = None
+    if picks:
+        c = Counter(picks).most_common()
+        victim = random.choice([u for u, n in c if n == c[0][1]])
+    st["last_save"], st["out"] = st["act"]["save"], None
+    saved = victim is not None and victim == st["act"]["save"]
+    if victim is not None and not saved:
+        st["alive"][victim] = False
+    st["dawn"] = {"dead": None if saved else victim}
+    if not mf_win(st):
+        mf_phase(st, "dawn")
+
+def mf_tally(st):
+    cnt = Counter(t for v, t in st["votes"].items() if t is not None and st["alive"].get(v))
+    out = None
+    if cnt:
+        c = cnt.most_common()
+        if len(c) == 1 or c[0][1] > c[1][1]:
+            out = c[0][0]
+    st["out"] = out
+    if out is not None:
+        st["alive"][out] = False
+    st["day"] += 1
+    st["act"] = {"kill": {}, "save": None, "check": None}
+    if not mf_win(st):
+        mf_phase(st, "night")
+
+def mf_advance(st):
+    ph = st["phase"]
+    if ph == "reveal":
+        mf_phase(st, "night")
+    elif ph == "night":
+        mf_dawn(st)
+    elif ph == "dawn":
+        st["dawn"], st["votes"] = None, {}
+        mf_phase(st, "day")
+    elif ph == "day":
+        st["votes"] = {}
+        mf_phase(st, "vote")
+    elif ph == "vote":
+        mf_tally(st)
+
+def mf_act(r, st, uid, t, msg):
+    if t == "again":
+        if r["host"] == uid and st["phase"] == "over":
+            if len(r["players"]) < 4:
+                return "Butuh minimal 4 pemain."
+            r["state"] = mf_new(r)
+            return None
+        return "Belum bisa."
+    if st["phase"] == "over":
+        return "Game sudah selesai."
+    if not st["alive"].get(uid):
+        return "Kamu sudah tidak ikut bermain."
+    i = msg.get("i") if isinstance(msg.get("i"), int) else None
+    ph, role = st["phase"], st["role"][uid]
+    if t == "ready" and ph == "reveal":
+        if uid not in st["ready"]:
+            st["ready"].append(uid)
+        if all(u in st["ready"] for u in mf_alive(st)):
+            mf_advance(st)
+        return None
+    if ph == "night" and t in ("kill", "save", "check"):
+        if not st["alive"].get(i):
+            return "Pilih pemain yang masih hidup."
+        me_p = st["pos"].get(uid, {"x": 50, "y": 70})
+        tg_p = st["pos"].get(i, {"x": 50, "y": 70})
+        if ((me_p["x"]-tg_p["x"])**2 + (me_p["y"]-tg_p["y"])**2) ** 0.5 > 20:
+            return "Terlalu jauh. Dekati target dulu."
+        if t == "kill":
+            if role != "mafia" or st["role"][i] == "mafia":
+                return "Kamu tidak bisa memilih itu."
+            st["act"]["kill"][uid] = i
+        elif t == "save":
+            if role != "doctor":
+                return "Hanya dokter yang bisa melindungi."
+            if i == st["last_save"]:
+                return "Tidak boleh melindungi orang yang sama dua malam berturut-turut."
+            st["act"]["save"] = i
+        else:
+            if role != "detective" or i == uid:
+                return "Kamu tidak bisa menyelidiki itu."
+            if st["act"]["check"] is not None:
+                return "Kamu sudah menyelidiki malam ini."
+            st["act"]["check"] = i
+            st["found"][i] = st["role"][i] == "mafia"
+        if mf_done(st):
+            mf_dawn(st)
+        return None
+    if ph == "vote" and t == "vote":
+        if i == -1:
+            st["votes"][uid] = None
+        elif i == uid or not st["alive"].get(i):
+            return "Pilih pemain lain yang masih hidup."
+        else:
+            st["votes"][uid] = i
+        if all(u in st["votes"] for u in mf_alive(st)):
+            mf_tally(st)
+        return None
+    return "Aksi itu belum bisa dilakukan sekarang."
+
+def mf_leave(st, uid):
+    st["alive"].pop(uid, None)
+    st["act"]["kill"].pop(uid, None)
+    st["votes"].pop(uid, None)
+    st["ready"] = [u for u in st["ready"] if u != uid]
+    if mf_win(st):
+        return
+    if st["phase"] == "night" and mf_done(st):
+        mf_dawn(st)
+    elif st["phase"] == "vote" and all(u in st["votes"] for u in mf_alive(st)):
+        mf_tally(st)
+    elif st["phase"] == "reveal" and all(u in st["ready"] for u in mf_alive(st)):
+        mf_advance(st)
 
 async def push0(code):
     r = ROOMS.get(code)
-    if r:
-        await cast(code, {"t": "room", "code": code, "game": r["game"], "host": r["host"],
-                          "started": r["started"], "state": pub(r),
-                          "board": BOARD if r["game"] == "mono" else None, "mins": r.get("mins", 60) if r["game"] == "mono" else None,
-                          "players": [{"id": i, "name": p["name"], "photo": p["photo"],
-                                       "on": p["ws"] is not None} for i, p in r["players"].items()]})
-
+    if not r:
+        return
+    st = r["state"]
+    base = {"t": "room", "code": code, "game": r["game"], "host": r["host"], "started": r["started"],
+            "board": BOARD if r["game"] == "mono" else None,
+            "mins": r.get("mins", 60) if r["game"] == "mono" else None,
+            "players": [{"id": i, "name": p["name"], "photo": p["photo"], "on": p["ws"] is not None}
+                        for i, p in r["players"].items()]}
+    shared = None if st and st["g"] == "mafia" else pub(r)
+    for uid, p in list(r["players"].items()):
+        await send(p["ws"], {**base, "state": mf_pub(st, uid) if st and st["g"] == "mafia" else shared})
 
 async def push(code):
     await push0(code)
     arm(code)
 
-
-LIVE = {"ludo": ("roll", "move"), "mono": ("roll", "buy", "act", "debt")}
-
+LIVE = {"ludo": ("roll", "move"), "mono": ("roll", "buy", "act", "debt"),
+        "mafia": ("reveal", "night", "dawn", "day", "vote")}
 
 def arm(code, delay=None):
     r = ROOMS.get(code)
     st = r and r["state"]
     if st and st["g"] in LIVE and st["phase"] in LIVE[st["g"]] and st.get("armed") != st["ver"]:
         st["armed"] = st["ver"]
-        spawn(autoplay(code, st["ver"], delay or (60 if st["g"] == "mono" else TURN_SECS)))
-
+        d = delay or (MF_SECS[st["phase"]] + 1 if st["g"] == "mafia" else 60 if st["g"] == "mono" else TURN_SECS)
+        spawn(autoplay(code, st["ver"], d))
 
 async def autoplay(code, ver, delay):
     await asyncio.sleep(delay)
@@ -604,7 +758,9 @@ async def autoplay(code, ver, delay):
     st = r and r["state"]
     if not st or st["g"] not in LIVE or st["ver"] != ver or st["phase"] not in LIVE[st["g"]]:
         return
-    if st["g"] == "mono":
+    if st["g"] == "mafia":
+        mf_advance(st)
+    elif st["g"] == "mono":
         mono_auto(st)
         st["ver"] += 1
     elif st["phase"] == "roll":
@@ -614,7 +770,6 @@ async def autoplay(code, ver, delay):
     await push0(code)
     arm(code, 3 if st["g"] == "ludo" and st["phase"] == "move" else None)
 
-
 def maybe_reveal(r):
     st = r["state"]
     if not st or st["g"] != "tod" or st["phase"] != "write":
@@ -623,7 +778,6 @@ def maybe_reveal(r):
     if st["subs"] and all(u in st["subs"] for u in need):
         st["cards"] = random.sample(list(st["subs"].values()), len(st["subs"]))
         st["phase"] = "do"
-
 
 async def remove(code, uid):
     r = ROOMS.get(code)
@@ -649,6 +803,8 @@ async def remove(code, uid):
                 st["ver"] += 1
         elif st["g"] == "mono":
             mono_leave(st, uid, i, was)
+        elif st["g"] == "mafia":
+            mf_leave(st, uid)
         else:
             st["subs"].pop(uid, None)
             if len(st["order"]) < 2:
@@ -661,20 +817,17 @@ async def remove(code, uid):
                 maybe_reveal(r)
     await push(code)
 
-
 async def expire(code, uid):
     await asyncio.sleep(GRACE)
     r = ROOMS.get(code)
     if r and uid in r["players"] and r["players"][uid]["ws"] is None:
         await remove(code, uid)
 
-
 def new_code():
     while True:
         c = "".join(random.choices(CODE_CHARS, k=5))
         if c not in ROOMS:
             return c
-
 
 async def play(code, uid, t, msg):
     r = ROOMS[code]
@@ -692,9 +845,13 @@ async def play(code, uid, t, msg):
         if err:
             return err
         r["state"]["ver"] += 1
+    elif st["g"] == "mafia":
+        err = mf_act(r, st, uid, t, msg)
+        if err:
+            return err
     elif t == "spin" and st["phase"] == "idle" and uid == st["spinner"]:
         st["target"] = random.choice(st["order"])
-        st["kind"] = random.choice(("truth", "dare"))  # dipilih sistem supaya adil
+        st["kind"] = random.choice(("truth", "dare"))
         st["spin"] += 1
         st["subs"], st["phase"] = {}, "write"
     elif t == "submit" and st["phase"] == "write" and uid in st["order"] and uid != st["target"]:
@@ -711,7 +868,6 @@ async def play(code, uid, t, msg):
     else:
         return
     await push(code)
-
 
 async def ws_handler(req):
     ws = web.WebSocketResponse(heartbeat=25, max_msg_size=4096)
@@ -761,6 +917,23 @@ async def ws_handler(req):
                     code = c
                     r["players"][uid] = {"name": name, "photo": pic, "ws": ws}
                     await push(c)
+            elif t == "mv" and code in ROOMS:
+                r = ROOMS[code]
+                s0 = r["state"]
+                if s0 and s0["g"] == "mafia" and s0["alive"].get(uid) and s0["phase"] in ("night", "day"):
+                    try:
+                        x = max(6, min(94, float(msg.get("x", 50))))
+                        y = max(24, min(94, float(msg.get("y", 70))))
+                    except (TypeError, ValueError):
+                        continue
+                    d = msg.get("d", "down")
+                    if d not in ("up", "down", "left", "right"):
+                        d = "down"
+                    s0["pos"][uid] = {"x": round(x, 1), "y": round(y, 1)}
+                    s0["dir"][uid] = d
+                    payload = {"t": "mv", "u": uid, "x": s0["pos"][uid]["x"], "y": s0["pos"][uid]["y"], "d": d}
+                    for p in r["players"].values():
+                        await send(p["ws"], payload)
             elif t == "opt" and code in ROOMS:
                 r = ROOMS[code]
                 if r["host"] == uid and not r["started"] and r["game"] == "mono" and msg.get("mins") in (0, 30, 60, 90):
@@ -776,13 +949,17 @@ async def ws_handler(req):
                             r["state"] = ludo_new(r)
                         elif r["game"] == "mono":
                             r["state"] = mono_new(r)
+                        elif r["game"] == "mafia":
+                            r["state"] = mf_new(r)
                         else:
                             r["state"] = {"g": "tod", "order": list(r["players"]), "spinner": uid, "round": 1, "spin": 0}
                             fresh(r["state"])
                         await push(code)
                     else:
                         await send(ws, {"t": "error", "m": f"Butuh {lo} sampai {hi} pemain."})
-            elif t in ("spin", "submit", "reveal", "done", "end", "roll", "move", "again", "buy", "nobuy", "next", "build", "sell", "mort", "unmort", "jailpay", "jailcard", "bankrupt") and code in ROOMS:
+            elif t in ("spin", "submit", "reveal", "done", "end", "roll", "move", "again", "buy", "nobuy",
+                       "next", "build", "sell", "mort", "unmort", "jailpay", "jailcard", "bankrupt",
+                       "ready", "kill", "save", "check", "vote") and code in ROOMS:
                 err = await play(code, uid, t, msg)
                 if err:
                     await send(ws, {"t": "error", "m": err})
@@ -790,7 +967,10 @@ async def ws_handler(req):
                 last = time.time()
                 if t == "chat":
                     text = str(msg.get("text", "")).strip()[:200]
-                    if text:
+                    s0 = ROOMS[code]["state"]
+                    if s0 and s0["g"] == "mafia" and (s0["phase"] in ("reveal", "night") or not s0["alive"].get(uid)):
+                        await send(ws, {"t": "error", "m": "Chat dimatikan saat ini."})
+                    elif text:
                         await cast(code, {"t": "chat", "from": uid, "name": name, "text": text})
                 elif msg.get("k") in REACTS:
                     await cast(code, {"t": "react", "from": uid, "k": msg["k"]})
@@ -808,7 +988,6 @@ async def ws_handler(req):
             spawn(expire(code, user["id"]))
     return ws
 
-
 async def on_startup(app):
     try:
         async with ClientSession(timeout=ClientTimeout(total=10)) as s:
@@ -817,19 +996,15 @@ async def on_startup(app):
     except Exception:
         pass
 
-
 INDEX = (STATIC / "index.html").read_bytes()
-
 
 async def index(_):
     r = web.Response(body=INDEX, content_type="text/html", charset="utf-8", headers={"Cache-Control": "no-cache"})
     r.enable_compression()
     return r
 
-
 async def health(_):
     return web.Response(text="ok")
-
 
 app = web.Application()
 app.on_startup.append(on_startup)
