@@ -144,6 +144,14 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
 .ev{color:var(--p4)}
 .say.dn,.pc .say{bottom:auto;top:100%;margin:6px 0 0}
 .sq{cursor:pointer}
+.opts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0}
+.opts button{padding:6px 12px;border:2px solid var(--ink);border-radius:99px;background:#fff;font:800 12px var(--f);cursor:pointer}.opts button.on{background:var(--p2)}.opts button:disabled{opacity:.75;cursor:default}
+.mtimer{text-align:center;font:400 15px var(--d);margin-bottom:6px}
+.cardpop{position:fixed;left:50%;top:40%;z-index:8;width:min(80vw,300px);padding:18px 18px 14px;border:3px solid var(--ink);border-radius:18px;background:#fff;box-shadow:6px 6px 0 var(--ink);text-align:center;transform:translate(-50%,-50%) rotate(-3deg);animation:flip .5s ease both}
+.cardpop small{display:block;margin:-18px -18px 12px;padding:8px;border-bottom:3px solid var(--ink);border-radius:15px 15px 0 0;font:400 15px var(--d);letter-spacing:.08em;color:#fff}
+.cardpop.kj small{background:#e0509f}.cardpop.dw small{background:#2d8fe0}
+.cardpop b{display:block;font:800 17px/1.35 var(--f)}.cardpop em{display:block;margin-top:10px;font-size:12px;color:var(--mut);font-style:normal;font-weight:700}
+@keyframes flip{from{opacity:0;transform:translate(-50%,-50%) rotateY(90deg) rotate(-3deg) scale(.8)}}
 .mzr{display:flex;justify-content:flex-end;margin-top:8px}.mzr .mini{background:#fff}
 .board.z{overflow:auto;max-height:80vh}.board.z svg{width:900px;max-width:none}
 .minfo{margin:8px 0 0;padding:12px 14px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;box-shadow:3px 3px 0 var(--ink)}
@@ -183,6 +191,7 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
 <symbol id="r-wow" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffcf4a"/><circle cx="8.5" cy="10" r="1.5" fill="#5a2a00"/><circle cx="15.5" cy="10" r="1.5" fill="#5a2a00"/><ellipse cx="12" cy="16" rx="2.6" ry="3.2" fill="#5a2a00"/></symbol>
 <symbol id="r-like" viewBox="0 0 24 24"><path fill="#4da3ff" d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></symbol></svg>
 <div id="toast" role="status" aria-live="polite" hidden></div>
+<div class="cardpop" id="mcard" hidden></div>
 
 <section id="splash"><svg class="lg" role="img" aria-label="NewtGame"><use href="#logo"/></svg><p class="tag" id="splashmsg">Main bareng teman di Telegram</p></section>
 
@@ -207,14 +216,14 @@ textarea{width:100%;min-height:76px;padding:12px 14px;resize:none;border-radius:
   <div class="rtop"><div><small>Room</small><h1 id="rtitle">Truth or Dare</h1></div>
     <button class="chip" id="codeBtn" aria-label="Salin kode room"><b id="codeTxt"></b><svg class="ic"><use href="#i-copy"/></svg></button>
     <button class="ib snd" aria-label="Suara"></button></div>
-  <div class="lobby" id="lobbyCard"><small>Kode room</small><button class="tiles" id="tiles" aria-label="Salin kode room"></button><div class="two"><button class="btn ghost sm" id="copy2">Salin kode</button><button class="btn sm" id="share2">Ajak teman</button></div><div class="count"><i id="cbar"></i></div><p id="ctxt"></p></div>
+  <div class="lobby" id="lobbyCard"><small>Kode room</small><button class="tiles" id="tiles" aria-label="Salin kode room"></button><div class="two"><button class="btn ghost sm" id="copy2">Salin kode</button><button class="btn sm" id="share2">Ajak teman</button></div><div class="count"><i id="cbar"></i></div><p id="ctxt"></p><div id="mopt" hidden><small>Batas waktu permainan</small><div class="opts" id="moptb"></div><p id="mrule"></p></div></div>
   <div class="stage" id="stage">
     <svg class="tbl" viewBox="0 0 100 100" aria-hidden="true"><g id="chairs"></g><circle cx="52" cy="53.5" r="32" fill="#111"/><circle cx="50" cy="50" r="31.5" fill="url(#gWood)" stroke="#111" stroke-width="1.6"/><circle cx="50" cy="50" r="27.5" fill="url(#gFelt)" stroke="#111" stroke-width="1.2"/><path d="M30 40a22 22 0 0 1 18-13" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="2.4" stroke-linecap="round"/><circle cx="50" cy="50" r="22" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width=".5" stroke-dasharray="1.5 2"/></svg>
     <div id="seats"></div>
     <svg id="bottleW" viewBox="0 0 40 120" aria-hidden="true"><use href="#bottle"/></svg>
   </div>
   <div id="ludo" hidden><div class="pl" id="plist"></div><div class="board"><svg id="bsvg" viewBox="0 0 150 150" role="img" aria-label="Papan Ludo"></svg></div></div>
-  <div id="mono" hidden><div class="pl" id="mplist"></div><div class="mzr"><button class="mini" id="mzoom" type="button">Perbesar papan</button></div><div class="board" id="mbox"><svg id="msvg" viewBox="0 0 200 200" role="img" aria-label="Papan Monopoly"></svg></div><div class="minfo" id="minfo" hidden></div></div>
+  <div id="mono" hidden><div class="mtimer" id="mtimer"></div><div class="pl" id="mplist"></div><div class="mzr"><button class="mini" id="mzoom" type="button">Perbesar papan</button></div><div class="board" id="mbox"><svg id="msvg" viewBox="0 0 200 200" role="img" aria-label="Papan Monopoly"></svg></div><div class="minfo" id="minfo" hidden></div></div>
   <div class="panel" id="panel"></div>
   <details class="own" id="mown" hidden><summary id="ownsum"></summary><div id="ownlist"></div></details>
   <div id="hostctl" hidden><button class="btn ghost sm" id="endBtn">Akhiri game</button></div>
@@ -413,7 +422,7 @@ function chatMsg(m){
   if(el){const sy=h("div","say"+(parseFloat(el.style.top)>55?" dn":""),m.text.length>60?m.text.slice(0,58)+"…":m.text);el.append(sy);setTimeout(()=>sy.remove(),3300)}
 }
 const MC=["#f0453f","#2fbf71","#ffc933","#3b8ef0","#9b5de5","#ff8c42"],GCOL={br:"#8d5a3b",lb:"#8fd3f4",pk:"#f06cb3",or:"#ff9f43",rd:"#e8433f",yl:"#ffd23f",gr:"#2fbf71",db:"#2d5ff0"};
-let mShown={},mRid=-1,mBusy=false,mSel=-1,mDice=[1,1],mTok={};
+let mShown={},mRid=-1,mBusy=false,mSel=-1,mDice=[1,1],mTok={},mDeadline=null,mCardN=-1,mCardPend=null,cardT;
 (()=>{const d=document.createElementNS(NS,"svg");d.setAttribute("width","0");d.setAttribute("height","0");d.style.position="absolute";d.innerHTML="<defs>"+PGR.map((c,i)=>`<radialGradient id="pg${i}" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="${c[0]}"/><stop offset=".55" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[2]}"/></radialGradient>`).join("")+"</defs>";document.body.prepend(d)})();
 const rp=n=>"Rp"+Number(n).toLocaleString("id-ID");
 const MW=200,MC0=22,MWID=(MW-2*MC0)/9;
@@ -433,41 +442,49 @@ function nameLines(n){
   return b[1];
 }
 const mtxt=(L,y0,fs,gap,fill)=>L.map((t,k)=>`<text x="0" y="${y0+k*gap}" text-anchor="middle" font-size="${fs}" ${MF} fill="${fill||"#111"}">${t}</text>`).join("");
+function cellGeom(i){
+  const sd=i<10?"b":i<20?"l":i<30?"t":"r",v=sd==="l"||sd==="r",W=v?MC0:MWID,H=v?MWID:MC0;
+  return {sd,v,W,H,
+    band:sd==="b"?[-W/2,-H/2,W,5]:sd==="t"?[-W/2,H/2-5,W,5]:sd==="l"?[W/2-5,-H/2,5,H]:[-W/2,-H/2,5,H],
+    ax:sd==="l"?-2.5:sd==="r"?2.5:0,ay:sd==="b"?2.5:sd==="t"?-2.5:0,
+    dot:[sd==="l"?-W/2+2.7:W/2-2.7,sd==="t"?-H/2+2.7:H/2-2.7]};
+}
 function cellSVG(s,i){
-  const hw=MWID/2,hc=MC0/2,L=nameLines(s.n),fs=Math.min(2.8,15.5/(.6*Math.max(...L.map(x=>x.length))));
-  let o=`<rect x="${-hw}" y="${-hc}" width="${MWID}" height="${MC0}" fill="#f1faf3" stroke="#111" stroke-width=".55"/>`;
-  if(s.t==="p")o+=`<rect x="${-hw}" y="${-hc}" width="${MWID}" height="5" fill="${GCOL[s.g]}" stroke="#111" stroke-width=".55"/>`+mtxt(L,L.length>1?-1.6:-.3,fs,3.1)+mtxt([rp(s.c)],8.6,2.6,0);
-  else if(s.t==="r")o+=mtxt(L,-7.6,fs,3)+`<g transform="translate(0 2)"><rect x="-5" y="-2.6" width="10" height="4.4" rx="1" fill="#111"/><rect x="-3.4" y="-4.8" width="3" height="2.4" fill="#111"/><circle cx="-3" cy="2.6" r="1.1" fill="#111"/><circle cx="3" cy="2.6" r="1.1" fill="#111"/></g>`+mtxt([rp(s.c)],8.6,2.6,0);
-  else if(s.t==="u")o+=mtxt(L,-7.6,fs,3)+(i===12?`<g transform="translate(0 1.6)"><circle r="3.4" fill="#ffd23f" stroke="#111" stroke-width=".5"/><rect x="-1.6" y="3" width="3.2" height="2" fill="#111"/></g>`:`<path d="M0 -3.4c2.4 3 3.6 4.6 3.6 6.2a3.6 3.6 0 0 1-7.2 0c0-1.6 1.2-3.2 3.6-6.2z" fill="#3b8ef0" stroke="#111" stroke-width=".5" transform="translate(0 1.4)"/>`)+mtxt([rp(s.c)],8.6,2.6,0);
-  else if(s.t==="chance")o+=mtxt(["KEJUTAN"],-6.6,2.6,0)+`<text x="0" y="8.2" text-anchor="middle" font-size="13" font-family="Titan One,Arial Black,sans-serif" fill="${i<10?"#e0509f":i<20?"#8b5cf6":i<30?"#2aa5d8":"#ff8c42"}" stroke="#111" stroke-width=".5">?</text>`;
-  else if(s.t==="chest")o+=mtxt(["DANA","WARGA"],-7,2.7,3)+`<g transform="translate(0 4.6)"><rect x="-5.2" y="-1" width="10.4" height="6" rx=".8" fill="#4aa8e8" stroke="#111" stroke-width=".6"/><path d="M-5.2 -1c0-3 2.4-4.4 5.2-4.4s5.2 1.4 5.2 4.4z" fill="#79c2f2" stroke="#111" stroke-width=".6"/><rect x="-1" y="0" width="2" height="2.4" fill="#ffd23f" stroke="#111" stroke-width=".4"/></g>`;
-  else if(s.t==="tax")o+=(i===4?mtxt(["PAJAK","PENGHASILAN"],-7.4,2.35,2.9)+`<text x="0" y="5.2" text-anchor="middle" font-size="7" ${MF} fill="#111">%</text>`:mtxt(["PAJAK","MEWAH"],-7.4,2.7,2.9)+`<circle cx="0" cy="2.2" r="3" fill="none" stroke="#ffc933" stroke-width="1.7"/><path d="M-1.5 -1.4l1.5-2 1.5 2-1.5 1.4z" fill="#8fd3f4" stroke="#111" stroke-width=".35"/>`)+mtxt(["Bayar "+rp(s.c)],8.6,2.3,0);
+  const q=cellGeom(i),{W,H,ax,ay}=q,L=nameLines(s.n),fs=Math.min(2.8,15.5/(.6*Math.max(...L.map(x=>x.length))));
+  const T=(lines,y,z,gap,fill)=>lines.map((t,k)=>`<text x="${ax}" y="${y+k*gap}" text-anchor="middle" font-size="${z}" ${MF} fill="${fill||"#111"}">${t}</text>`).join("");
+  const price=c=>T([c],ay+7.4,2.6,0),ic=(body,dy,sc)=>`<g transform="translate(${ax} ${ay+dy}) scale(${sc})">${body}</g>`;
+  let o=`<rect x="${-W/2}" y="${-H/2}" width="${W}" height="${H}" fill="#f1faf3" stroke="#111" stroke-width=".55"/>`;
+  if(s.t==="p")o+=`<rect x="${q.band[0]}" y="${q.band[1]}" width="${q.band[2]}" height="${q.band[3]}" fill="${GCOL[s.g]}" stroke="#111" stroke-width=".55"/>`+T(L,L.length>1?ay-2.6:ay-1.2,fs,3.1)+price(rp(s.c));
+  else if(s.t==="r")o+=T(L,ay-5.4,fs,2.8)+ic('<rect x="-5" y="-2.6" width="10" height="4.4" rx="1" fill="#111"/><rect x="-3.4" y="-4.8" width="3" height="2.4" fill="#111"/><circle cx="-3" cy="2.6" r="1.1" fill="#111"/><circle cx="3" cy="2.6" r="1.1" fill="#111"/>',2.8,.8)+price(rp(s.c));
+  else if(s.t==="u")o+=T(L,ay-5.4,fs,2.8)+ic(i===12?'<circle r="3.4" fill="#ffd23f" stroke="#111" stroke-width=".5"/><rect x="-1.6" y="3" width="3.2" height="2" fill="#111"/>':'<path d="M0 -3.4c2.4 3 3.6 4.6 3.6 6.2a3.6 3.6 0 0 1-7.2 0c0-1.6 1.2-3.2 3.6-6.2z" fill="#3b8ef0" stroke="#111" stroke-width=".5"/>',2.8,.85)+price(rp(s.c));
+  else if(s.t==="chance")o+=T(["KEJUTAN"],ay-5,2.6,0)+`<text x="${ax}" y="${ay+7.2}" text-anchor="middle" font-size="12" font-family="Titan One,Arial Black,sans-serif" fill="${i<10?"#e0509f":i<20?"#8b5cf6":i<30?"#2aa5d8":"#ff8c42"}" stroke="#111" stroke-width=".5">?</text>`;
+  else if(s.t==="chest")o+=T(["DANA","WARGA"],ay-5.4,2.7,2.8)+ic('<rect x="-5.2" y="-1" width="10.4" height="6" rx=".8" fill="#4aa8e8" stroke="#111" stroke-width=".6"/><path d="M-5.2 -1c0-3 2.4-4.4 5.2-4.4s5.2 1.4 5.2 4.4z" fill="#79c2f2" stroke="#111" stroke-width=".6"/><rect x="-1" y="0" width="2" height="2.4" fill="#ffd23f" stroke="#111" stroke-width=".4"/>',4,.85);
+  else if(s.t==="tax")o+=(i===4?T(["PAJAK","PENGHASILAN"],ay-5.6,2.35,2.8)+`<text x="${ax}" y="${ay+4.4}" text-anchor="middle" font-size="6.5" ${MF} fill="#111">%</text>`:T(["PAJAK","MEWAH"],ay-5.6,2.7,2.8)+ic('<circle cx="0" cy="0" r="2.7" fill="none" stroke="#ffc933" stroke-width="1.6"/><path d="M-1.4 -3.3l1.4-1.9 1.4 1.9-1.4 1.4z" fill="#8fd3f4" stroke="#111" stroke-width=".35"/>',2.4,1))+T(["Bayar "+rp(s.c)],ay+7.6,2.1,0);
   return o;
 }
 function cornerSVG(i){
   const b='<rect x="-11" y="-11" width="22" height="22" fill="#fff7fb" stroke="#111" stroke-width=".7"/>';
   if(i===0)return b+mtxt(["MULAI"],-1.2,5.2,0)+mtxt(["Terima Rp200"],-6.4,2.1,0)+'<path d="M7.5 6.6H-7.5M-7.5 6.6l3-2.6M-7.5 6.6l3 2.6" stroke="#e8433f" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
-  if(i===10)return b+'<rect x="-1" y="-10" width="10.4" height="10.4" fill="#ff9f43" stroke="#111" stroke-width=".7"/><path d="M1.6 -10v10.4M4.2 -10v10.4M6.8 -10v10.4" stroke="#111" stroke-width=".55"/>'+`<text x="-5.2" y="-3" text-anchor="middle" font-size="2.3" ${MF} fill="#111" transform="rotate(-90 -5.2 -3)">PENJARA</text>`+mtxt(["SEKADAR","MAMPIR"],5.2,2.6,2.9);
-  if(i===20)return b+`<g transform="translate(0 4.4)"><rect x="-6" y="-2.6" width="12" height="5.2" rx="1.6" fill="#e8433f" stroke="#111" stroke-width=".6"/><rect x="-3.4" y="-5" width="6.8" height="3" rx="1.2" fill="#e8433f" stroke="#111" stroke-width=".6"/><circle cx="-3.4" cy="2.7" r="1.4" fill="#111"/><circle cx="3.4" cy="2.7" r="1.4" fill="#111"/></g><g transform="rotate(45 0 -3)">${mtxt(["REST AREA"],-2,3.3,0)}</g>`;
-  return b+`<g transform="translate(0 4.6)"><rect x="-4.5" y="0" width="9" height="3" rx=".6" fill="#2d5ff0" stroke="#111" stroke-width=".6"/><path d="M-3 0a3 3.4 0 0 1 6 0z" fill="#e8433f" stroke="#111" stroke-width=".6"/></g><g transform="rotate(-45 0 -3)">${mtxt(["MASUK","PENJARA"],-4.6,2.9,3.1)}</g>`;
+  if(i===10)return b+'<rect x="1" y="-10" width="9.4" height="9.4" fill="#ff9f43" stroke="#111" stroke-width=".7"/><path d="M3.4 -10v9.4M5.7 -10v9.4M8 -10v9.4" stroke="#111" stroke-width=".55"/>'+`<text x="-5" y="-4.6" text-anchor="middle" font-size="2" ${MF} fill="#111">DI</text><text x="-5" y="-2.2" text-anchor="middle" font-size="2" ${MF} fill="#111">PENJARA</text>`+mtxt(["SEKADAR","MAMPIR"],5.2,2.6,2.9);
+  if(i===20)return b+mtxt(["REST","AREA"],-6.6,3.4,3.4)+'<g transform="translate(0 5.6) scale(.9)"><rect x="-6" y="-2.6" width="12" height="5.2" rx="1.6" fill="#e8433f" stroke="#111" stroke-width=".6"/><rect x="-3.4" y="-5" width="6.8" height="3" rx="1.2" fill="#e8433f" stroke="#111" stroke-width=".6"/><circle cx="-3.4" cy="2.7" r="1.4" fill="#111"/><circle cx="3.4" cy="2.7" r="1.4" fill="#111"/></g>';
+  return b+mtxt(["MASUK","PENJARA"],-7.4,3,3.1)+'<g transform="translate(0 5.6)"><rect x="-4.5" y="0" width="9" height="3" rx=".6" fill="#2d5ff0" stroke="#111" stroke-width=".6"/><path d="M-3 0a3 3.4 0 0 1 6 0z" fill="#e8433f" stroke="#111" stroke-width=".6"/></g>';
 }
-function deck(x,y,a,t){return `<g transform="translate(${x} ${y}) rotate(${a})"><rect x="-17" y="-10.5" width="34" height="21" rx="2.5" fill="#cfeedd" stroke="#111" stroke-width=".7" stroke-dasharray="1.8 1.6"/>${mtxt([t],1.4,4,0)}</g>`}
+function deck(x,y,t){return `<g transform="translate(${x} ${y})"><rect x="-17" y="-10.5" width="34" height="21" rx="2.5" fill="#cfeedd" stroke="#111" stroke-width=".7" stroke-dasharray="1.8 1.6"/>${mtxt([t],1.4,4,0)}</g>`}
 function monoBoard(bd){
-  let o='<rect width="200" height="200" fill="#c9e7d0"/><rect x="22" y="22" width="156" height="156" fill="#dff3e3" stroke="#111" stroke-width=".8"/>'+deck(60,52,35,"DANA WARGA")+deck(140,148,35,"KEJUTAN")+'<use href="#logo" x="44" y="60" width="112" height="51" transform="rotate(-8 100 85)"/>';
-  bd.forEach((s,i)=>{const [cx,cy,a]=cellC(i);o+=`<g class="sq" data-i="${i}" transform="translate(${cx} ${cy}) rotate(${a})">${i%10===0?cornerSVG(i):cellSVG(s,i)}<g id="d${i}"></g></g>`});
+  let o='<rect width="200" height="200" fill="#c9e7d0"/><rect x="22" y="22" width="156" height="156" fill="#dff3e3" stroke="#111" stroke-width=".8"/>'+deck(62,50,"DANA WARGA")+deck(138,150,"KEJUTAN")+'<use href="#logo" x="44" y="60" width="112" height="51" transform="rotate(-5 100 85)"/>';
+  bd.forEach((s,i)=>{const [cx,cy]=cellC(i);o+=`<g class="sq" data-i="${i}" transform="translate(${cx} ${cy})">${i%10===0?cornerSVG(i):cellSVG(s,i)}<g id="d${i}"></g></g>`});
   return o+'<g id="mdice"></g><g id="mtk"></g>';
 }
 function monoDyn(st){
-  const hw=MWID/2;
   st.board.forEach((s,i)=>{
     const g=document.getElementById("d"+i);if(!g)return;const ow=st.own[i];
     if(!ow){g.innerHTML="";return}
-    let o="";
-    if(ow.m)o+=`<rect x="${-hw}" y="-11" width="${MWID}" height="22" fill="#111" opacity=".4"/><text x="0" y="-.6" text-anchor="middle" font-size="2.7" ${MF} fill="#fff">GADAI</text>`;
-    o+=`<circle cx="${hw-2.7}" cy="8.2" r="1.7" fill="${MC[st.colors[ow.o]]}" stroke="#111" stroke-width=".5"/>`;
+    const q=cellGeom(i),{W,H,v,band}=q,[bx,by]=band;let o="";
+    if(ow.m)o+=`<rect x="${-W/2}" y="${-H/2}" width="${W}" height="${H}" fill="#111" opacity=".4"/><text x="${q.ax}" y="${q.ay-.6}" text-anchor="middle" font-size="2.7" ${MF} fill="#fff">GADAI</text>`;
+    o+=`<circle cx="${q.dot[0]}" cy="${q.dot[1]}" r="1.7" fill="${MC[st.colors[ow.o]]}" stroke="#111" stroke-width=".5"/>`;
     if(s.t==="p"){
-      if(ow.h===5)o+=`<rect x="-4.2" y="-10.1" width="8.4" height="3.1" rx=".6" fill="#e8433f" stroke="#111" stroke-width=".4"/>`;
-      else for(let n=0;n<ow.h;n++)o+=`<rect x="${-hw+1.2+n*3.9}" y="-10.1" width="3" height="3.1" rx=".5" fill="#2fbf71" stroke="#111" stroke-width=".4"/>`;
+      if(ow.h===5)o+=v?`<rect x="${bx+.9}" y="-4.2" width="3.1" height="8.4" rx=".6" fill="#e8433f" stroke="#111" stroke-width=".4"/>`:`<rect x="-4.2" y="${by+.9}" width="8.4" height="3.1" rx=".6" fill="#e8433f" stroke="#111" stroke-width=".4"/>`;
+      else for(let n=0;n<ow.h;n++)o+=v?`<rect x="${bx+.9}" y="${by+1.2+n*3.9}" width="3.1" height="3" rx=".5" fill="#2fbf71" stroke="#111" stroke-width=".4"/>`:`<rect x="${-W/2+1.2+n*3.9}" y="${by+.9}" width="3" height="3.1" rx=".5" fill="#2fbf71" stroke="#111" stroke-width=".4"/>`;
     }
     g.innerHTML=o;
   });
@@ -488,6 +505,24 @@ function monoTok(){
     if(fresh){void el.getBoundingClientRect();el.style.transition=""}
   });
 }
+function monoOpts(){
+  const box=$("mopt"),host=room.host===me;box.hidden=room.started;if(room.started)return;
+  $("moptb").replaceChildren(...[[0,"Tanpa batas"],[30,"30 menit"],[60,"60 menit"],[90,"90 menit"]].map(([v,l])=>{const b=h("button",room.mins===v?"on":"",l);b.type="button";b.disabled=!host;b.onclick=()=>{hap("light");send({t:"opt",mins:v})};return b}));
+  $("mrule").textContent=room.mins?`Menang: pemain terakhir yang tidak bangkrut. Kalau ${room.mins} menit habis, yang paling kaya menang.`:"Menang: pemain terakhir yang tidak bangkrut. Tanpa batas waktu, permainan bisa sangat panjang.";
+}
+function showCard(c){
+  const el=$("mcard");el.className="cardpop "+(c.k==="k"?"kj":"dw");
+  el.replaceChildren(h("small",null,c.k==="k"?"KEJUTAN":"DANA WARGA"),h("b",null,c.t),h("em",null,"Untuk "+nameOf(c.u)+". Tap untuk menutup."));
+  el.hidden=false;SFX.pop();clearTimeout(cardT);cardT=setTimeout(()=>{el.hidden=true},5000);
+}
+$("mcard").onclick=()=>{$("mcard").hidden=true};
+setInterval(()=>{
+  const el=$("mtimer");if(!room||room.game!=="mono"||!room.state)return;
+  if(room.state.phase==="over"){el.textContent="";return}
+  if(mDeadline==null){el.textContent="Tanpa batas waktu";return}
+  const sec=Math.max(0,Math.round((mDeadline-Date.now())/1000));
+  el.textContent=sec>0?`Sisa waktu ${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`:"Waktu habis. Game berakhir setelah giliran ini.";
+},1000);
 function monoSnap(st){st.order.forEach(u=>mShown[u]=st.pos[u])}
 function monoStep(){
   const st=room&&room.state;if(!st){mBusy=false;return}
@@ -495,7 +530,7 @@ function monoStep(){
   st.order.forEach(u=>{const from=mShown[u]==null?st.pos[u]:mShown[u],to=st.pos[u],d=(to-from+40)%40;if(!d)return;if(d<=12)for(let k=1;k<=d;k++)jobs.push([u,(from+k)%40]);else jobs.push([u,to])});
   let n=0;
   const iv=setInterval(()=>{
-    if(n>=jobs.length){clearInterval(iv);mBusy=false;if(room&&room.state){monoSnap(room.state);draw()}return}
+    if(n>=jobs.length){clearInterval(iv);mBusy=false;if(room&&room.state){monoSnap(room.state);draw()}if(mCardPend){showCard(mCardPend);mCardPend=null}return}
     const [u,p]=jobs[n++];mShown[u]=p;SFX.tick();monoTok();
   },170);
 }
@@ -532,7 +567,7 @@ function drawMono(){
   $("mplist").replaceChildren(...list.map((p,i)=>{
     const c=h("div","pc"+(st&&st.turn===p.id&&st.phase!=="over"?" turn":"")),d=h("i");d.style.background=MC[st?st.colors[p.id]:i];
     c.append(av(p,i,p.on?"":"off"),h("span","nm2",p.name+(p.id===me?" (kamu)":"")));
-    if(st)c.append(h("span","mny",rp(st.cash[p.id])+(st.jail[p.id]!=null?" · penjara":"")));
+    if(st)c.append(h("span","mny",rp(st.cash[p.id])+(st.jail[p.id]!=null?" · penjara":"")+((st.free[p.id]||[]).length?" · kartu bebas":"")));
     c.append(d);seatEl[p.id]=c;return c;
   }));
   if(!bd)return;
@@ -545,7 +580,7 @@ $("mzoom").onclick=()=>{const b=$("mbox"),z=b.classList.toggle("z");$("mzoom").t
 $("msvg").onclick=e=>{const g=e.target.closest("[data-i]");if(!g||!room)return;const i=+g.dataset.i;mSel=mSel===i?-1:i;monoInfo()};
 function monoK(k,B,st,host){
   const mine=st.turn===me,nm=nameOf(st.turn),busy=rolling||mBusy;
-  if(st.phase==="over"){k.push(h("p","msg",`${nameOf(st.winner)} memenangkan permainan!`));if(host)k.push(B("Main lagi",()=>send({t:"again"})));return}
+  if(st.phase==="over"){k.push(h("p","msg",`${nameOf(st.winner)} memenangkan permainan!`));(st.rank||[]).forEach(([u,w],i)=>k.push(h("p","ev2"+(i?" old":""),`${i+1}. ${st.nm[u]} · kekayaan ${rp(w)}`)));if(host)k.push(B("Main lagi",()=>send({t:"again"})));return}
   st.ev.slice(-3).reverse().forEach((t,i)=>k.push(h("p","ev2"+(i?" old":""),t)));
   if(busy){k.push(h("p","msg",rolling?"Dadu berputar…":"Bidak berjalan…"));return}
   if(!mine){k.push(h("p","msg",st.phase==="debt"?`${nm} sedang mencari uang untuk membayar.`:`Giliran ${nm}.`));return}
@@ -597,6 +632,9 @@ function onRoom(m){
   }else lastRid=-1;
   if(st&&st.g==="mono"){
     const first=mRid<0;
+    mDeadline=st.left==null?null:Date.now()+st.left*1000;
+    if(st.rid===0)mCardN=0;
+    if(st.card){if(mCardN<0)mCardN=st.card.n;else if(st.card.n>mCardN){mCardN=st.card.n;mCardPend=st.card}}else if(mCardN<0)mCardN=0;
     if(st.rid!==mRid){mRid=st.rid;if(!first&&st.rid>0&&!mBusy)monoRollAnim(st);else if(!mBusy)monoSnap(st)}
     else if(!mBusy)monoSnap(st);
   }else{mRid=-1;mShown={};mBusy=false;mSel=-1}
@@ -614,6 +652,7 @@ function draw(){
   $("tiles").replaceChildren(...[...room.code].map(c=>h("span",null,c)));
   $("cbar").style.width=Math.min(100,cnt/mx*100)+"%";
   $("ctxt").textContent=`${cnt} dari ${mx} pemain. Minimal ${mn} untuk mulai.`;
+  if(mo)monoOpts();else $("mopt").hidden=true;
   $("hostctl").hidden=!(room.started&&room.host===me);
   panel();
   if(mo&&room.state)monoOwn(room.state);else $("mown").hidden=true;
@@ -693,7 +732,7 @@ function connect(){
       if(queue){const q=queue;queue=null;send(q)}
     }
     else if(m.t==="room")onRoom(m);
-    else if(m.t==="left"){room=null;lastSpin=null;mRid=-1;mShown={};mBusy=false;mSel=-1;show("home")}
+    else if(m.t==="left"){room=null;lastSpin=null;mRid=-1;mShown={};mBusy=false;mSel=-1;mCardN=-1;mCardPend=null;show("home")}
     else if(m.t==="chat"){chatMsg(m);SFX.pop()}
     else if(m.t==="react")floatReact(m.from,m.k);
     else if(m.t==="error"){pending=false;lock(false);toast(m.m);if(m.c==="notfound")room=null;if(!room&&["splash","room"].includes(cur()))enter()}
