@@ -200,13 +200,29 @@ def mono_new(r):
             "colors": {u: i for i, u in enumerate(order)}, "cash": {u: 1500 for u in order}, "pos": {u: 0 for u in order},
             "jail": {}, "free": {}, "own": {}, "dk": {"k": ks, "d": ds}, "turn": order[0], "phase": "roll",
             "dice": [0, 0], "dbl": 0, "again": False, "rid": 0, "ev": [], "debt": None, "buy": None,
-            "winner": None, "dead": [], "ver": 0}
+            "winner": None, "dead": [], "ver": 0, "card": None, "cardn": 0,
+            "end": time.time() + r.get("mins", 60) * 60 if r.get("mins", 60) else None}
+
+
+def worth(st, u):
+    v = st["cash"][u]
+    for i, o in st["own"].items():
+        if o["o"] == u:
+            v += (BOARD[i]["c"] // 2 if o["m"] else BOARD[i]["c"]) + o["h"] * BOARD[i].get("h", 0)
+    return v
+
+
+def ranking(st):
+    return sorted(([u, worth(st, u) if u in st["order"] else 0] for u in st["nm"]), key=lambda x: -x[1])
 
 
 def mono_pub(st):
     d = {k: st[k] for k in ("g", "order", "nm", "colors", "cash", "pos", "jail", "free", "own", "turn", "phase",
-                            "dice", "again", "rid", "ev", "debt", "buy", "winner", "dead")}
+                            "dice", "again", "rid", "ev", "debt", "buy", "winner", "dead", "card")}
     d["board"] = BOARD
+    d["left"] = max(0, int(st["end"] - time.time())) if st["end"] else None
+    if st["phase"] == "over":
+        d["rank"] = ranking(st)
     return d
 
 
@@ -310,6 +326,8 @@ def draw(st, u, kind, total):
     if eff != "free":
         st["dk"][k].append(i)
     log(st, f"{st['nm'][u]} ({'Kejutan' if k == 'k' else 'Dana Warga'}): {text}")
+    st["cardn"] += 1
+    st["card"] = {"u": u, "k": k, "t": text, "n": st["cardn"]}
     old, others = st["pos"][u], [o for o in st["order"] if o != u]
     if eff == "adv":
         go_to(st, u, v, total)
@@ -399,6 +417,11 @@ def mono_roll(st):
 
 
 def nxt(st):
+    if st.get("end") and time.time() >= st["end"]:
+        rk = ranking(st)
+        st["phase"], st["winner"], st["again"], st["buy"] = "over", rk[0][0], False, None
+        log(st, f"Waktu habis. {st['nm'][rk[0][0]]} paling kaya dengan {rp(rk[0][1])}")
+        return
     o = st["order"]
     st["turn"] = o[(o.index(st["turn"]) + 1) % len(o)]
     st["phase"], st["dbl"], st["again"], st["buy"] = "roll", 0, False, None
@@ -554,7 +577,7 @@ async def push0(code):
     if r:
         await cast(code, {"t": "room", "code": code, "game": r["game"], "host": r["host"],
                           "started": r["started"], "state": pub(r),
-                          "board": BOARD if r["game"] == "mono" else None,
+                          "board": BOARD if r["game"] == "mono" else None, "mins": r.get("mins", 60) if r["game"] == "mono" else None,
                           "players": [{"id": i, "name": p["name"], "photo": p["photo"],
                                        "on": p["ws"] is not None} for i, p in r["players"].items()]})
 
@@ -738,6 +761,11 @@ async def ws_handler(req):
                     code = c
                     r["players"][uid] = {"name": name, "photo": pic, "ws": ws}
                     await push(c)
+            elif t == "opt" and code in ROOMS:
+                r = ROOMS[code]
+                if r["host"] == uid and not r["started"] and r["game"] == "mono" and msg.get("mins") in (0, 30, 60, 90):
+                    r["mins"] = msg["mins"]
+                    await push(code)
             elif t == "start" and code in ROOMS:
                 r = ROOMS[code]
                 lo, hi = LIMITS[r["game"]]
